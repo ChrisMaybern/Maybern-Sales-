@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maybern — Owning the Calculation Layer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #1a1a1a; overflow: hidden; }
+  #root { width: 100vw; height: 100vh; }
+
+  /* Architecture diagram animations */
+  @keyframes pulseGlow { 0%,100%{box-shadow:0 0 20px rgba(58,168,124,0.15)} 50%{box-shadow:0 0 35px rgba(58,168,124,0.35)} }
+  @keyframes wobble { 0%,100%{transform:rotate(-1.5deg) translateY(0)} 20%{transform:rotate(0.8deg) translateY(-0.5px)} 40%{transform:rotate(-0.6deg) translateY(0.5px)} 60%{transform:rotate(1.2deg) translateY(-0.3px)} 80%{transform:rotate(-0.4deg) translateY(0.4px)} }
+  @keyframes wobbleDanger { 0%{transform:rotate(-4deg) translateY(0)} 15%{transform:rotate(2.5deg) translateY(-1px)} 30%{transform:rotate(-3deg) translateY(1px)} 50%{transform:rotate(3.5deg) translateY(-1.5px)} 70%{transform:rotate(-2deg) translateY(0.5px)} 85%{transform:rotate(2deg) translateY(-0.5px)} 100%{transform:rotate(-4deg) translateY(0)} }
+  @keyframes wobbleSlow { 0%,100%{transform:rotate(-0.8deg) translateY(0)} 50%{transform:rotate(0.8deg) translateY(0.5px)} }
+  @keyframes dangerGlow { 0%,100%{box-shadow:0 4px 20px rgba(122,27,27,0.08)} 50%{box-shadow:0 4px 30px rgba(122,27,27,0.2)} }
+  @keyframes subtleSink { 0%,100%{transform:translateY(0)} 50%{transform:translateY(1.5px)} }
+  @keyframes flowArrow { 0%{opacity:0.4;transform:translateX(-4px)} 50%{opacity:1;transform:translateX(4px)} 100%{opacity:0.4;transform:translateX(-4px)} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes screenShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-1.5px,-1px)} 50%{transform:translate(1.5px,0.5px)} 75%{transform:translate(-1px,1px)} }
+  @keyframes bigShake { 0%,100%{transform:translate(0,0)} 20%{transform:translate(-2px,-1.5px)} 40%{transform:translate(2px,1px)} 60%{transform:translate(-1.5px,1.5px)} 80%{transform:translate(1px,-1px)} }
+  @keyframes redFlash { 0%{background:rgba(122,27,27,0)} 20%{background:rgba(122,27,27,0.04)} 100%{background:rgba(122,27,27,0)} }
+  @keyframes countUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes errorSlide { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fuseGlow { 0%,100%{filter:drop-shadow(0 0 3px #ff6600) drop-shadow(0 0 6px #ff3300)} 50%{filter:drop-shadow(0 0 6px #ff8800) drop-shadow(0 0 12px #ff4400)} }
+  @keyframes fuseBurn { 0%{stroke-dashoffset:var(--fuse-len)} 100%{stroke-dashoffset:0} }
+  @keyframes sparkTravel { 0%{offset-distance:0%} 100%{offset-distance:100%} }
+  @keyframes sparkGlow { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(1.3)} }
+  @keyframes detonate { 0%{transform:translate(-50%,-50%) scale(1)} 20%{transform:translate(-50%,-50%) scale(1.1)} 100%{transform:translate(-50%,-50%) scale(1)} }
+  @keyframes blastRing { 0%{transform:translate(-50%,-50%) scale(0.3);opacity:0.6;border-width:2px} 100%{transform:translate(-50%,-50%) scale(1.8);opacity:0;border-width:1px} }
+  @keyframes blastRing2 { 0%{transform:translate(-50%,-50%) scale(0.4);opacity:0.4;border-width:2px} 100%{transform:translate(-50%,-50%) scale(1.5);opacity:0;border-width:1px} }
+  @keyframes timerPulse { 0%,100%{transform:translate(-50%,-50%) scale(1);color:#ff3300} 50%{transform:translate(-50%,-50%) scale(1.15);color:#ff0000} }
+  @keyframes emberFloat { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-20px) scale(0.3)} }
+  @keyframes burnedGlow { 0%,100%{stroke:rgba(180,40,40,0.5)} 50%{stroke:rgba(200,60,30,0.7)} }
+  @keyframes stackCollapse { 0%{transform:translateY(0) rotate(-1deg)} 50%{transform:translateY(2px) rotate(0.5deg)} 100%{transform:translateY(0) rotate(-1deg)} }
+  /* Collapse animations — each card falls differently */
+  @keyframes fallLeft { 0%{transform:translateY(0) rotate(0deg); opacity:1} 30%{transform:translateY(10px) rotate(-8deg); opacity:1} 100%{transform:translateY(120px) translateX(-40px) rotate(-35deg); opacity:0} }
+  @keyframes fallRight { 0%{transform:translateY(0) rotate(0deg); opacity:1} 30%{transform:translateY(8px) rotate(5deg); opacity:1} 100%{transform:translateY(110px) translateX(45px) rotate(30deg); opacity:0} }
+  @keyframes fallDown { 0%{transform:translateY(0) rotate(0deg); opacity:1} 20%{transform:translateY(6px) rotate(-2deg); opacity:1} 100%{transform:translateY(130px) rotate(-12deg); opacity:0} }
+  @keyframes fallTopple { 0%{transform:translateY(0) rotate(-4deg); opacity:1} 15%{transform:translateY(-5px) rotate(6deg); opacity:1} 100%{transform:translateY(140px) translateX(-20px) rotate(-45deg); opacity:0} }
+  @keyframes cardSlideOut { 0%{transform:translateY(0) translateX(0); opacity:1} 40%{transform:translateY(0) translateX(30px); opacity:0.8} 100%{transform:translateY(20px) translateX(80px); opacity:0} }
+  @keyframes dangerFlash { 0%{box-shadow:0 4px 20px rgba(122,27,27,0.08)} 50%{box-shadow:0 4px 40px rgba(122,27,27,0.45)} 100%{box-shadow:0 4px 20px rgba(122,27,27,0)} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+const C = {
+  deepGreen: "#091D13",
+  darkGreen: "#092115",
+  green: "#17412D",
+  mint: "#ECFFF5",
+  lightMint: "#F6FFFA",
+  warmCream: "#FDF8F3",
+  darkRed: "#7A1B1B",
+  accentTeal: "#3AA87C",
+  muted: "#556B62",
+};
+
+const slides = [
+  { id: 1, label: "Title" },
+  { id: 2, label: "Status Quo" },
+  { id: 3, label: "Logic Layer" },
+  { id: 4, label: "The Cascade" },
+  { id: 5, label: "Complexity" },
+  { id: 6, label: "Breaking Points" },
+  { id: 7, label: "Where We Sit" },
+  { id: 8, label: "The Shift" },
+  { id: 9, label: "Who Owns It" },
+  { id: 10, label: "Next Step" },
+];
+
+// ─── Animated counter ───
+function Counter({ end, suffix = "", duration = 1800 }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const step = end / (duration / 16);
+    const id = setInterval(() => {
+      start += step;
+      if (start >= end) { setVal(end); clearInterval(id); }
+      else setVal(Math.floor(start));
+    }, 16);
+    return () => clearInterval(id);
+  }, [end, duration]);
+  return <span>{val}{suffix}</span>;
+}
+
+// ─── Fade-in wrapper ───
+function FadeIn({ children, delay = 0, className = "", style = {} }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
+  return (
+    <div className={className} style={{
+      opacity: visible ? 1 : 0,
+      transform: visible ? "translateY(0)" : "translateY(20px)",
+      transition: "opacity 0.6s ease, transform 0.6s ease",
+      ...style,
+    }}>{children}</div>
+  );
+}
+
+// ════════════════════════════════════════
+// SLIDE COMPONENTS
+// ════════════════════════════════════════
+
+function Slide1() {
+  /* Subtle SVG icons for fund accounting flavor */
+  const IconWaterfall = () => (
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style={{ opacity: 0.25 }}>
+      <rect x="4" y="28" width="8" height="12" rx="2" fill={C.accentTeal}/>
+      <rect x="18" y="18" width="8" height="22" rx="2" fill={C.accentTeal}/>
+      <rect x="32" y="8" width="8" height="32" rx="2" fill={C.accentTeal}/>
+      <line x1="2" y1="42" x2="42" y2="42" stroke={C.accentTeal} strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+  const IconLedger = () => (
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style={{ opacity: 0.25 }}>
+      <rect x="6" y="4" width="32" height="36" rx="3" stroke={C.accentTeal} strokeWidth="1.5"/>
+      <line x1="6" y1="14" x2="38" y2="14" stroke={C.accentTeal} strokeWidth="1"/>
+      <line x1="6" y1="22" x2="38" y2="22" stroke={C.accentTeal} strokeWidth="1"/>
+      <line x1="6" y1="30" x2="38" y2="30" stroke={C.accentTeal} strokeWidth="1"/>
+      <line x1="22" y1="14" x2="22" y2="40" stroke={C.accentTeal} strokeWidth="1"/>
+      <circle cx="14" cy="9" r="2" fill={C.accentTeal}/>
+      <circle cx="30" cy="9" r="2" fill={C.accentTeal}/>
+    </svg>
+  );
+  const IconDistribution = () => (
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style={{ opacity: 0.25 }}>
+      <circle cx="22" cy="10" r="6" stroke={C.accentTeal} strokeWidth="1.5"/>
+      <line x1="22" y1="16" x2="22" y2="24" stroke={C.accentTeal} strokeWidth="1.5"/>
+      <line x1="22" y1="24" x2="10" y2="36" stroke={C.accentTeal} strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="22" y1="24" x2="22" y2="38" stroke={C.accentTeal} strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="22" y1="24" x2="34" y2="36" stroke={C.accentTeal} strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="10" cy="37" r="3" stroke={C.accentTeal} strokeWidth="1.2"/>
+      <circle cx="22" cy="39" r="3" stroke={C.accentTeal} strokeWidth="1.2"/>
+      <circle cx="34" cy="37" r="3" stroke={C.accentTeal} strokeWidth="1.2"/>
+    </svg>
+  );
+  const IconShield = () => (
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style={{ opacity: 0.25 }}>
+      <path d="M22 4L6 12V22C6 32 14 39 22 42C30 39 38 32 38 22V12L22 4Z" stroke={C.accentTeal} strokeWidth="1.5" strokeLinejoin="round"/>
+      <polyline points="15,22 20,27 30,17" stroke={C.accentTeal} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+
+  return (
+    <div style={{ background: C.deepGreen, minHeight: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px 80px 120px", position: "relative", overflow: "hidden" }}>
+
+      {/* Background decorative graphics — right side */}
+      <div style={{ position: "absolute", right: 60, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 32, opacity: 0.6 }}>
+        <FadeIn delay={1200}><IconWaterfall /></FadeIn>
+        <FadeIn delay={1400}><IconLedger /></FadeIn>
+        <FadeIn delay={1600}><IconDistribution /></FadeIn>
+        <FadeIn delay={1800}><IconShield /></FadeIn>
+      </div>
+
+      {/* Subtle grid lines — accounting paper feel */}
+      <div style={{
+        position: "absolute", inset: 0, opacity: 0.03,
+        backgroundImage: `linear-gradient(${C.accentTeal} 1px, transparent 1px), linear-gradient(90deg, ${C.accentTeal} 1px, transparent 1px)`,
+        backgroundSize: "60px 60px",
+        pointerEvents: "none",
+      }} />
+
+      <FadeIn delay={100}>
+        <div style={{ width: 80, height: 3, background: C.accentTeal, marginBottom: 16 }} />
+        <div style={{ fontSize: 15, color: C.accentTeal, letterSpacing: 5, fontWeight: 400, marginBottom: 12 }}>INTRODUCTORY OVERVIEW</div>
+      </FadeIn>
+      <FadeIn delay={400}>
+        <h1 style={{ fontFamily: "Georgia, serif", fontSize: 52, color: C.mint, fontWeight: 400, lineHeight: 1.15, marginBottom: 28 }}>
+          Owning the<br/>Calculation Layer
+        </h1>
+      </FadeIn>
+      {/* Subtitle — positioned well below the title, well above branding */}
+      <FadeIn delay={700}>
+        <p style={{ fontSize: 17, color: C.mint, opacity: 0.7, lineHeight: 1.6, maxWidth: 550, marginTop: 48 }}>
+          How fund finance teams move from<br/>manageable complexity to defensible confidence.
+        </p>
+      </FadeIn>
+
+      {/* Maybern branding — pinned to bottom */}
+      <FadeIn delay={1000}>
+        <div style={{ position: "absolute", bottom: 44, left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <span style={{ fontWeight: 700, color: C.accentTeal, fontSize: 38 }}>ıılı</span>
+          <span style={{ color: C.accentTeal, fontSize: 34, fontWeight: 300, letterSpacing: 3 }}>maybern</span>
+        </div>
+      </FadeIn>
+    </div>
+  );
+}
+
+function Slide2() {
+  const stats = [
+    { val: 94, suffix: "%", label: "of spreadsheets contain errors" },
+    { val: 79, suffix: "%", label: "of finance leaders overwhelmed by manual tasks" },
+    { val: 70, suffix: "%", label: "of funds include side letter provisions" },
+  ];
+  return (
+    <div style={{ background: C.warmCream, minHeight: "100%", padding: "40px 72px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 28 }}>
+      <FadeIn delay={100}>
+        <div style={{ width: 70, height: 3, background: C.accentTeal, marginBottom: 12 }} />
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: 38, color: C.deepGreen, fontWeight: 400 }}>
+          The reality for most fund finance teams
+        </h2>
+      </FadeIn>
+      <FadeIn delay={400}>
+        <div style={{ background: "#fff", borderRadius: 8, padding: "32px 36px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", borderLeft: `4px solid ${C.green}` }}>
+          <p style={{ fontFamily: "Georgia, serif", fontSize: 22, color: C.deepGreen, fontStyle: "italic", marginBottom: 14, lineHeight: 1.5 }}>
+            The real inefficiency isn't that it takes time.
+          </p>
+          <p style={{ fontSize: 19, color: C.darkRed, fontWeight: 700, marginBottom: 14, lineHeight: 1.5 }}>
+            Confidence doesn't scale at the same rate complexity does.
+          </p>
+          <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.7 }}>
+            And when you're managing three, four, five active vehicles — the hours per fund don't grow linearly. The fragility does.
+          </p>
+        </div>
+      </FadeIn>
+      <div style={{ display: "flex", gap: 16 }}>
+        {stats.map((s, i) => (
+          <FadeIn key={i} delay={800 + i * 200} style={{ flex: 1 }}>
+            <div style={{ background: C.deepGreen, borderRadius: 6, padding: "22px 18px", textAlign: "center" }}>
+              <div style={{ fontSize: 36, fontWeight: 700, color: C.accentTeal }}>
+                <Counter end={s.val} suffix={s.suffix} />
+              </div>
+              <div style={{ fontSize: 15, color: C.mint, marginTop: 6, lineHeight: 1.4 }}>{s.label}</div>
+            </div>
+          </FadeIn>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Slide3() {
+  const [flipped, setFlipped] = useState(new Set());
+  const allFlipped = flipped.size === 4;
+  const cards = [
+    { title: "Waterfall / Carry Model", owner: "Finance / CFO", risk: "Assumes all upstream data is correct — errors cascade silently",
+      solution: "Waterfall Engine", items: ["Whole-fund & hybrid (deal-by-deal)", "Configurable tiers & hurdle logic", "LP-level allocation with full lineage"] },
+    { title: "Management Fees & Offsets", owner: "Accounting / Finance", risk: "Adjustments happen after the fact — audit trail is manual",
+      solution: "Fee Calculation", items: ["Step-downs, offsets & side letter terms", "Multiple fee bases — committed, invested, NAV", "Automated adjustments with audit trail"] },
+    { title: "LP Ownership & Allocations", owner: "Finance / Ops", risk: "Ownership changes aren't synchronized across models",
+      solution: "Allocation Engine", items: ["Centralized ownership tracking", "Synchronized across all calculations", "Automatic rebalancing on close events"] },
+    { title: "Preferred Return / Hurdle", owner: "Finance", risk: "Fragile date logic and compounding assumptions",
+      solution: "Governance & Defensibility", items: ["Every calculation explainable & traceable", "Version-controlled economic logic", "Built for auditor and LP scrutiny"] },
+  ];
+  const toggleFlip = (i) => {
+    setFlipped(prev => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+  };
+  return (
+    <div style={{ background: C.warmCream, minHeight: "100%", padding: "40px 72px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      {/* Architecture bar — fades in when all cards flipped */}
+      <div style={{
+        opacity: allFlipped ? 1 : 0,
+        transform: allFlipped ? "translateY(0)" : "translateY(-12px)",
+        transition: "all 0.6s ease",
+        marginBottom: allFlipped ? 20 : 0,
+        maxHeight: allFlipped ? 60 : 0,
+        overflow: "hidden",
+      }}>
+        <div style={{ display: "flex", alignItems: "stretch", borderRadius: 6, overflow: "hidden" }}>
+          <div style={{ flex: "0 0 130px", background: C.deepGreen, padding: "12px 16px", textAlign: "center", fontSize: 15, color: C.mint, display: "flex", alignItems: "center", justifyContent: "center" }}>General Ledger</div>
+          <div style={{ flex: 1, background: C.accentTeal, padding: "12px 20px", textAlign: "center", fontSize: 15, color: C.deepGreen, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: 17 }}>ıılı</span> Maybern — The Logic Layer
+          </div>
+          <div style={{ flex: "0 0 130px", background: C.deepGreen, padding: "12px 16px", textAlign: "center", fontSize: 15, color: C.mint, display: "flex", alignItems: "center", justifyContent: "center" }}>Investor Portal</div>
+        </div>
+      </div>
+
+      <FadeIn delay={100}>
+        <div style={{ width: 70, height: 3, background: allFlipped ? C.accentTeal : C.darkRed, marginBottom: 12, transition: "background 0.5s" }} />
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: 38, color: C.deepGreen, fontWeight: 400, marginBottom: 8, transition: "all 0.5s" }}>
+          {allFlipped ? "If you don't own the logic layer, you don't really own the right answer." : "Where the logic actually lives"}
+        </h2>
+        <p style={{ fontSize: 17, color: allFlipped ? C.accentTeal : C.muted, marginBottom: 28, transition: "color 0.5s" }}>
+          {allFlipped ? "Centralized · Version-controlled · Audit-ready" : "These spreadsheets power fund economics — click any card to see Maybern's answer."}
+        </p>
+      </FadeIn>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        {cards.map((c, i) => {
+          const isFlipped = flipped.has(i);
+          return (
+            <FadeIn key={i} delay={300 + i * 200}>
+              <div onClick={() => toggleFlip(i)} style={{ perspective: 800, cursor: "pointer", height: 170 }}>
+                <div style={{
+                  position: "relative", width: "100%", height: "100%",
+                  transformStyle: "preserve-3d",
+                  transition: "transform 0.6s ease",
+                  transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                }}>
+                  {/* FRONT — Problem */}
+                  <div style={{
+                    position: "absolute", inset: 0, backfaceVisibility: "hidden",
+                    background: "#fff", borderRadius: 8, padding: "24px 28px",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+                    borderLeft: `4px solid ${C.darkRed}`,
+                    display: "flex", flexDirection: "column", justifyContent: "center",
+                  }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: C.deepGreen, marginBottom: 4 }}>{c.title}</div>
+                    <div style={{ fontSize: 14, color: C.accentTeal, fontWeight: 600, marginBottom: 10 }}>{c.owner}</div>
+                    <div style={{ fontSize: 15, color: C.muted, lineHeight: 1.6 }}>{c.risk}</div>
+                  </div>
+                  {/* BACK — Maybern Solution */}
+                  <div style={{
+                    position: "absolute", inset: 0, backfaceVisibility: "hidden",
+                    transform: "rotateY(180deg)",
+                    background: C.deepGreen, borderRadius: 8, padding: "24px 28px",
+                    borderLeft: `4px solid ${C.accentTeal}`,
+                    display: "flex", flexDirection: "column", justifyContent: "center",
+                  }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: C.mint, marginBottom: 12 }}>{c.solution}</div>
+                    {c.items.map((item, j) => (
+                      <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.accentTeal, marginTop: 7, flexShrink: 0 }} />
+                        <div style={{ fontSize: 15, color: C.mint, lineHeight: 1.5, opacity: 0.85 }}>{item}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </FadeIn>
+          );
+        })}
+      </div>
+      <p style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 16, transition: "opacity 0.5s", opacity: allFlipped ? 0 : 1 }}>
+        Click each card to flip
+      </p>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════
+// THE CASCADE — Spider Web Error Propagation
+// ════════════════════════════════════════
+
+function Slide_Cascade() {
+  const [phase, setPhase] = useState("idle");
+  const [timer, setTimer] = useState(3);
+  const [step, setStep] = useState(-1);
+  const [shakeType, setShakeType] = useState(null);
+  const [flashOn, setFlashOn] = useState(false);
+  const [burningEdges, setBurningEdges] = useState(new Set());
+  const [burnedEdges, setBurnedEdges] = useState(new Set());
+  const [detonatingNodes, setDetonatingNodes] = useState(new Set());
+  const [hitNodes, setHitNodes] = useState(new Set());
+  const [embers, setEmbers] = useState([]);
+  const timerRef = React.useRef(null);
+
+  /* ── nodes with REAL math ───────────────────────────────
+     Fund: $500M total, 30 LPs, Fund NAV $520M
+     LP-3 commitment: $50M entered as $5M (one missing zero)
+     All formulas verified in Python                        */
+  const nodes = [
+    { id:"cap", x:50, y:6, label:"Capital Account", right:"$50,000,000", wrong:"$5,000,000", formula:"LP-3 commitment entered", layer:0 },
+    { id:"own", x:22, y:22, label:"Ownership %", right:"10.0%", wrong:"1.0%", formula:"$5M ÷ $500M fund", layer:1 },
+    { id:"fee", x:78, y:22, label:"Fee Base", right:"$50M", wrong:"$5M", formula:"= commitment amt", layer:1 },
+    { id:"nav", x:8, y:42, label:"NAV Share", right:"$52.0M", wrong:"$5.2M", formula:"1.0% × $520M NAV", layer:2 },
+    { id:"wf",  x:33, y:42, label:"Waterfall Dist.", right:"$8.0M", wrong:"$800K", formula:"1.0% × $80M dist", layer:2 },
+    { id:"mf",  x:60, y:42, label:"Mgmt Fee", right:"$1.0M/yr", wrong:"$100K/yr", formula:"$5M × 2.0% rate", layer:2 },
+    { id:"olp", x:88, y:42, label:"Other 29 LPs", right:"90.0%", wrong:"99.0%", formula:"100% − 1.0%", layer:2 },
+    { id:"pref",x:16, y:62, label:"Pref Return", right:"$4.0M", wrong:"$400K", formula:"$5M × 8% hurdle", layer:3 },
+    { id:"carry",x:44, y:62, label:"GP Carry", right:"No carry yet", wrong:"+$1.32M phantom", formula:"20% above wrong pref", layer:3 },
+    { id:"dist", x:74, y:62, label:"Dist. Notice", right:"30 correct wires", wrong:"30 wrong wires", formula:"alloc by wrong %", layer:3 },
+    { id:"k1",   x:20, y:82, label:"K-1 Tax Filing", right:"$6.0M income", wrong:"$600K income", formula:"1.0% × $60M fund inc", layer:4 },
+    { id:"stmt", x:50, y:82, label:"Statements", right:"All accurate", wrong:"All wrong", formula:"feeds from NAV + carry", layer:4 },
+    { id:"port", x:80, y:82, label:"Investor Portal", right:"Accurate", wrong:"All incorrect", formula:"feeds from statements", layer:4 },
+  ];
+
+  const edges = [
+    { f:"cap", t:"own", op:"÷ $500M fund" },
+    { f:"cap", t:"fee", op:"= commitment" },
+    { f:"own", t:"nav", op:"× $520M NAV" },
+    { f:"own", t:"wf",  op:"× $80M dist" },
+    { f:"own", t:"olp", op:"100% − own%" },
+    { f:"fee", t:"mf",  op:"× 2.0% rate" },
+    { f:"wf",  t:"pref", op:"× 8% hurdle" },
+    { f:"mf",  t:"carry", op:"via fee offset" },
+    { f:"pref",t:"carry", op:"20% above pref" },
+    { f:"carry",t:"dist", op:"wire amounts" },
+    { f:"olp", t:"dist", op:"wrong shares" },
+    { f:"nav", t:"stmt", op:"report balances" },
+    { f:"carry",t:"stmt", op:"carry figures" },
+    { f:"dist",t:"k1",   op:"tax alloc %" },
+    { f:"olp", t:"k1",   op:"% of income" },
+    { f:"nav", t:"port",  op:"display data" },
+    { f:"stmt",t:"port",  op:"feed portal" },
+  ];
+
+  const nodeMap = {};
+  nodes.forEach(n => { nodeMap[n.id] = n; });
+  const FUSE_DUR = 1800;
+  const LAYER_GAP = 2200;
+
+  const shake = (type, dur) => { setShakeType(type); setTimeout(() => setShakeType(null), dur); };
+  const flash = () => { setFlashOn(true); setTimeout(() => setFlashOn(false), 600); };
+
+  const detonateLayer = (layer) => {
+    const ids = nodes.filter(n => n.layer === layer).map(n => n.id);
+    setDetonatingNodes(new Set(ids));
+    setHitNodes(prev => { const s = new Set(prev); ids.forEach(id => s.add(id)); return s; });
+    setStep(layer);
+    if (layer >= 3) { shake("big", 250); flash(); }
+    else if (layer >= 2) shake("normal", 200);
+    const ne = ids.flatMap(id => {
+      const n = nodeMap[id];
+      return [0].map(j => ({ id: id+"-e"+j, x: n.x, y: n.y-2, key: Date.now()+j }));
+    });
+    setEmbers(prev => [...prev, ...ne]);
+    setTimeout(() => setDetonatingNodes(new Set()), 500);
+    setTimeout(() => setEmbers(prev => prev.filter(e => !ne.find(x => x.id===e.id))), 1200);
+  };
+
+  const STAGGER = 350;
+
+  const lightFuses = (fromLayer, onDone) => {
+    const idxs = [];
+    edges.forEach((e, i) => {
+      if (nodeMap[e.f].layer === fromLayer && nodeMap[e.t].layer === fromLayer + 1) idxs.push(i);
+    });
+    idxs.forEach((idx, j) => {
+      setTimeout(() => {
+        setBurningEdges(prev => { const s = new Set(prev); s.add(idx); return s; });
+        setTimeout(() => {
+          setBurningEdges(prev => { const s = new Set(prev); s.delete(idx); return s; });
+          setBurnedEdges(prev => { const s = new Set(prev); s.add(idx); return s; });
+          if (j === idxs.length - 1 && onDone) onDone();
+        }, FUSE_DUR);
+      }, j * STAGGER);
+    });
+  };
+
+  const layerTotalTime = (fromLayer) => {
+    const count = edges.filter(e => nodeMap[e.f].layer === fromLayer && nodeMap[e.t].layer === fromLayer + 1).length;
+    return (count - 1) * STAGGER + FUSE_DUR;
+  };
+
+  const startCascade = () => {
+    if (phase !== "idle") return;
+    setPhase("countdown"); setTimer(3);
+    let t = 3;
+    timerRef.current = setInterval(() => {
+      t--;
+      if (t > 0) { setTimer(t); }
+      else {
+        clearInterval(timerRef.current); setTimer(0);
+        setPhase("cascading");
+        detonateLayer(0);
+        let cumulative = 450;
+        [0,1,2,3].forEach(l => {
+          const offset = cumulative;
+          setTimeout(() => {
+            lightFuses(l, () => {
+              detonateLayer(l + 1);
+            });
+          }, offset);
+          cumulative += layerTotalTime(l) + 400;
+        });
+        setTimeout(() => setPhase("done"), cumulative + 400);
+      }
+    }, 450);
+  };
+
+  const reset = () => {
+    clearInterval(timerRef.current);
+    setPhase("idle"); setTimer(3); setStep(-1); setShakeType(null);
+    setFlashOn(false); setBurningEdges(new Set()); setBurnedEdges(new Set());
+    setDetonatingNodes(new Set()); setHitNodes(new Set()); setEmbers([]);
+  };
+
+  return (
+    <div style={{
+      background: C.warmCream, minHeight:"100%", padding:"24px 44px 16px",
+      display:"flex", flexDirection:"column", position:"relative", overflow:"hidden",
+      animation: shakeType==="big" ? "bigShake 0.45s ease-out" : shakeType==="normal" ? "screenShake 0.35s ease-out" : "none",
+    }}>
+      {flashOn && <div style={{ position:"absolute", inset:0, zIndex:50, pointerEvents:"none", animation:"redFlash 0.6s ease-out forwards" }} />}
+
+      <FadeIn delay={100}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:4 }}>
+          <div>
+            <div style={{ width:60, height:3, background:C.darkRed, marginBottom:8 }} />
+            <h2 style={{ fontFamily:"Georgia, serif", fontSize:26, color:C.deepGreen, fontWeight:400, marginBottom:4 }}>
+              One wrong input. Every model breaks.
+            </h2>
+            <p style={{ fontSize:13, color:C.muted, marginBottom:2 }}>
+              $500M fund, 30 LPs. An analyst enters LP-3's commitment as <span style={{ color:C.darkRed, fontWeight:700, fontFamily:"monospace" }}>$5,000,000</span> instead of <span style={{ color:C.deepGreen, fontWeight:700, fontFamily:"monospace" }}>$50,000,000</span>.
+            </p>
+          </div>
+          {step >= 0 && (
+            <div style={{ background:"rgba(122,27,27,0.06)", border:"1px solid rgba(122,27,27,0.15)", borderRadius:6, padding:"4px 10px", textAlign:"right", animation:"countUp 0.3s ease-out", flexShrink:0, marginLeft:16 }}>
+              <div style={{ fontSize:10, color:C.darkRed, fontWeight:600, letterSpacing:1 }}>MODELS HIT</div>
+              <div style={{ fontSize:20, color:C.darkRed, fontWeight:700, fontFamily:"monospace" }}>
+                {nodes.filter(n => hitNodes.has(n.id)).length}<span style={{ fontSize:13, fontWeight:400 }}>/13</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <p style={{ fontSize:12, color: phase==="idle" ? C.accentTeal : C.muted, cursor: phase==="idle" ? "pointer" : "default", marginBottom:6, fontWeight:500 }}
+          onClick={startCascade}>
+          {phase==="idle" ? "▶ Click Capital Account to light the fuse" : phase==="countdown" ? "" : phase==="cascading" ? "Fuse burning…" : ""}
+        </p>
+      </FadeIn>
+
+      <div style={{ position:"relative", flex:1, minHeight:300 }}>
+        {/* SVG edges + sparks + formula labels */}
+        <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%", pointerEvents:"none" }}>
+          <defs>
+            <filter id="fuseF"><feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+            <filter id="sparkF"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          </defs>
+          {edges.map((e, i) => {
+            const fn = nodeMap[e.f], tn = nodeMap[e.t];
+            const isBurning = burningEdges.has(i);
+            const isBurned = burnedEdges.has(i);
+            const isIdle = !isBurning && !isBurned;
+            const mx = (fn.x + tn.x) / 2, my = ((fn.y + 4) + (tn.y - 2)) / 2;
+            return (
+              <React.Fragment key={i}>
+                <line x1={`${fn.x}%`} y1={`${fn.y+4}%`} x2={`${tn.x}%`} y2={`${tn.y-2}%`}
+                  stroke={isIdle ? "#d0ccc4" : isBurned ? "rgba(160,40,40,0.4)" : "transparent"}
+                  strokeWidth={isIdle ? 1 : 2} opacity={isIdle ? 0.18 : 1}
+                  style={isBurned ? { animation:"burnedGlow 2s infinite ease-in-out" } : {}} />
+                {isBurning && <line x1={`${fn.x}%`} y1={`${fn.y+4}%`} x2={`${tn.x}%`} y2={`${tn.y-2}%`}
+                  stroke="#ff6600" strokeWidth={3} strokeLinecap="round" filter="url(#fuseF)"
+                  strokeDasharray="400" strokeDashoffset="400"
+                  style={{ animation:`fuseBurn ${FUSE_DUR}ms linear forwards` }} />}
+                {isBurning && <circle r="5" fill="#ffcc00" filter="url(#sparkF)">
+                  <animate attributeName="cx" from={`${fn.x}%`} to={`${tn.x}%`} dur={`${FUSE_DUR}ms`} fill="freeze" />
+                  <animate attributeName="cy" from={`${fn.y+4}%`} to={`${tn.y-2}%`} dur={`${FUSE_DUR}ms`} fill="freeze" />
+                </circle>}
+                {(isBurning || isBurned) && (
+                  <text x={`${mx}%`} y={`${my}%`} textAnchor="middle" fontSize="9" fontWeight="600"
+                    fill={isBurning ? "#cc4400" : "rgba(122,27,27,0.5)"} fontFamily="Inter, sans-serif"
+                    style={{ animation:"errorSlide 0.3s ease-out" }}>
+                    {e.op}
+                  </text>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </svg>
+
+        {/* Blast rings */}
+        {nodes.filter(n => detonatingNodes.has(n.id)).map(n => (
+          <React.Fragment key={n.id+"-bl"}>
+            <div style={{ position:"absolute", left:`${n.x}%`, top:`${n.y}%`, width:60, height:60, borderRadius:"50%", border:"2px solid rgba(168,40,40,0.5)", animation:"blastRing 0.5s ease-out forwards", pointerEvents:"none", zIndex:1 }} />
+          </React.Fragment>
+        ))}
+
+        {/* Embers */}
+        {embers.map(e => (
+          <div key={e.id+e.key} style={{ position:"absolute", left:`${e.x}%`, top:`${e.y}%`, width:4, height:4, borderRadius:"50%", background:"#ff6600", boxShadow:"0 0 4px #ff4400, 0 0 8px #ff2200", animation:"emberFloat 1s ease-out forwards", pointerEvents:"none", zIndex:4 }} />
+        ))}
+
+        {/* ── Nodes with real math ── */}
+        {nodes.map(n => {
+          const isHit = hitNodes.has(n.id);
+          const isDet = detonatingNodes.has(n.id);
+          const isSrc = n.layer === 0;
+          const showTimer = phase==="countdown" && isSrc;
+          return (
+            <div key={n.id}
+              onClick={() => isSrc && phase==="idle" && startCascade()}
+              style={{
+                position:"absolute", left:`${n.x}%`, top:`${n.y}%`,
+                transform:"translate(-50%, -50%)",
+                background: isHit ? (isSrc ? "#990000" : "#a82828") : "#fff",
+                color: isHit ? "#fff" : C.deepGreen,
+                borderRadius:6, padding:"5px 8px",
+                fontSize:11, fontWeight:600, textAlign:"center",
+                cursor: isSrc && phase==="idle" ? "pointer" : "default",
+                boxShadow: isDet ? "0 0 16px rgba(168,40,40,0.4)"
+                  : isHit ? "0 3px 12px rgba(122,27,27,0.25)" : "0 1px 5px rgba(0,0,0,0.08)",
+                zIndex:3, minWidth:90,
+                border: isHit ? "2px solid rgba(255,150,150,0.4)" : "1px solid #e0dcd4",
+                animation: isDet ? "detonate 0.5s ease-out" : (isSrc && phase==="idle" ? "pulseGlow 2s infinite ease-in-out" : "none"),
+                transition:"background 0.2s, color 0.2s, box-shadow 0.3s",
+              }}
+            >
+              {showTimer ? (
+                <div style={{ fontSize:22, fontWeight:900, color:"#ff3300", fontFamily:"monospace", lineHeight:1, animation:"timerPulse 0.5s infinite ease-in-out", padding:"2px 0" }}>{timer}</div>
+              ) : (
+                <React.Fragment>
+                  <div style={{ fontSize:11, fontWeight:700, marginBottom: isHit ? 2 : 0 }}>{n.label}</div>
+                  {isHit && (
+                    <div style={{ animation:"errorSlide 0.3s ease-out" }}>
+                      <div style={{ fontSize:9, color:"rgba(255,255,255,0.45)", marginBottom:1, fontStyle:"italic", fontWeight:400 }}>{n.formula}</div>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:3 }}>
+                        <span style={{ fontSize:10, color:"rgba(255,200,200,0.55)", textDecoration:"line-through", fontFamily:"monospace" }}>{n.right}</span>
+                        <span style={{ fontSize:9, color:"#ffcc00" }}>→</span>
+                        <span style={{ fontSize:11, color:"#ffcc00", fontWeight:700, fontFamily:"monospace" }}>{n.wrong}</span>
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {phase === "done" ? (
+        <FadeIn delay={100}>
+          <div style={{ textAlign:"center", padding:"6px 0" }}>
+            <div style={{ fontSize:18, color:C.darkRed, fontWeight:700, marginBottom:3, fontFamily:"monospace", animation:"countUp 0.4s ease-out" }}>
+              1 cell → 13 models → 30 LPs impacted
+            </div>
+            <div style={{ fontSize:12, color:C.muted, marginBottom:3 }}>
+              Every number you just saw is real arithmetic. One missing zero in one cell. No formula was wrong — the <em>input</em> was wrong.
+            </div>
+            <div style={{ fontSize:11, color:C.muted, fontStyle:"italic", marginBottom:6, opacity:0.7 }}>
+              Excel Trace Dependents stops at the workbook boundary. This crosses 13 separate files.
+            </div>
+            <button onClick={reset} style={{ background:C.deepGreen, color:C.mint, border:"none", borderRadius:4, padding:"5px 14px", fontSize:12, fontWeight:600, cursor:"pointer" }}>Reset Cascade</button>
+          </div>
+        </FadeIn>
+      ) : (
+        <div style={{ height:40 }} />
+      )}
+    </div>
+  );
+}
+
+function Slide4() {
+  const [hoveredCard, setHoveredCard] = useState(null);
+  const drivers = [
+    { num: "01", title: "Fee Step-Downs", desc: "Rates change after investment period — date-dependent formulas multiply" },
+    { num: "02", title: "Multiple Fee Bases", desc: "Committed vs. invested vs. NAV — the denominator is a moving target" },
+    { num: "03", title: "Side Letter Discounts", desc: "Investor-level exceptions override fund-level logic" },
+    { num: "04", title: "Co-Invest Structures", desc: "Deal-level participation creates mini-waterfalls inside waterfalls" },
+    { num: "05", title: "Geographic Carve-Outs", desc: "EU/US investors, tax structuring — conditional matrices compound" },
+    { num: "06", title: "Asset-Level Promotes", desc: "Real estate waterfalls at multiple entity levels stack non-linearly" },
+  ];
+  return (
+    <div style={{ background: C.warmCream, minHeight: "100%", padding: "40px 72px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <FadeIn delay={100}>
+        <div style={{ width: 70, height: 3, background: C.accentTeal, marginBottom: 12 }} />
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: 38, color: C.deepGreen, fontWeight: 400, marginBottom: 8 }}>What drives complexity</h2>
+        <p style={{ fontSize: 15, color: C.darkRed, fontStyle: "italic", marginBottom: 32 }}>Most funds don't struggle with the math. They struggle with the logic.</p>
+      </FadeIn>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        {drivers.map((d, i) => (
+          <FadeIn key={i} delay={300 + i * 150}>
+            <div
+              onMouseEnter={() => setHoveredCard(i)}
+              onMouseLeave={() => setHoveredCard(null)}
+              style={{
+                background: hoveredCard === i ? C.deepGreen : "#fff",
+                borderRadius: 8, padding: "22px 24px",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+                cursor: "default",
+                transition: "all 0.3s ease",
+                minHeight: 130,
+              }}
+            >
+              <div style={{ fontSize: 22, color: C.accentTeal, fontWeight: 300, marginBottom: 6, transition: "color 0.3s" }}>{d.num}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: hoveredCard === i ? C.mint : C.deepGreen, marginBottom: 8, transition: "color 0.3s" }}>{d.title}</div>
+              <div style={{ fontSize: 13, color: hoveredCard === i ? C.mint : C.muted, lineHeight: 1.5, transition: "color 0.3s", opacity: hoveredCard === i ? 0.85 : 1 }}>{d.desc}</div>
+            </div>
+          </FadeIn>
+        ))}
+      </div>
+      {/* McKinsey credibility anchor */}
+      <FadeIn delay={1200}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 20, padding: "10px 16px", background: C.deepGreen, borderRadius: 6, borderLeft: `3px solid ${C.accentTeal}` }}>
+          <div style={{ fontSize: 12, color: C.accentTeal, fontWeight: 600, letterSpacing: 1, flexShrink: 0 }}>McKINSEY, 2018</div>
+          <div style={{ width: 1, height: 24, background: C.green, flexShrink: 0 }} />
+          <div style={{ fontSize: 13, color: C.mint, lineHeight: 1.5, opacity: 0.85 }}>
+            Operational complexity does not scale linearly with AUM — some functions show diseconomies of scale as firms grow.
+          </div>
+        </div>
+      </FadeIn>
+    </div>
+  );
+}
+
+function Slide5() {
+  const [activeRow, setActiveRow] = useState(null);
+  const triggers = [
+    { event: "First realization or exit", consequence: "Waterfall math becomes binding — errors are irreversible" },
+    { event: "First time paying carry", consequence: "GP compensation tied to model accuracy — stakes become personal" },
+    { event: "New fund launch", consequence: "Teams split attention — legacy processes don't carry over cleanly" },
+    { event: "Increased audit scrutiny", consequence: "Models must be explainable, not just accurate" },
+    { event: "Key-person absence", consequence: "No one owns the full context — knowledge concentration exposed" },
+    { event: "Shorter reporting cycles", consequence: "Manual processes don't compress — reconciliation time stays fixed" },
+  ];
+  return (
+    <div style={{ background: C.warmCream, minHeight: "100%", padding: "40px 72px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <FadeIn delay={100}>
+        <div style={{ width: 70, height: 3, background: C.accentTeal, marginBottom: 12 }} />
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: 38, color: C.deepGreen, fontWeight: 400, marginBottom: 8 }}>When the model gets tested</h2>
+        <p style={{ fontSize: 17, color: C.muted, marginBottom: 28 }}>These events don't create new problems — they expose existing fragility.</p>
+      </FadeIn>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {triggers.map((t, i) => (
+          <FadeIn key={i} delay={300 + i * 120}>
+            <div
+              onClick={() => setActiveRow(activeRow === i ? null : i)}
+              style={{
+                display: "flex", alignItems: "center", gap: 16,
+                padding: "14px 20px", borderRadius: 6,
+                background: activeRow === i ? C.deepGreen : i % 2 === 0 ? "#fff" : "transparent",
+                cursor: "pointer", transition: "all 0.3s ease",
+              }}
+            >
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: C.darkRed, flexShrink: 0 }} />
+              <div style={{ flex: "0 0 260px", fontSize: 17, fontWeight: 700, color: activeRow === i ? C.mint : C.deepGreen, transition: "color 0.3s" }}>{t.event}</div>
+              <div style={{ color: C.accentTeal, fontSize: 18, flexShrink: 0 }}>→</div>
+              <div style={{ fontSize: 16, color: activeRow === i ? C.mint : C.muted, lineHeight: 1.5, transition: "color 0.3s", opacity: activeRow === i ? 0.9 : 1 }}>{t.consequence}</div>
+            </div>
+          </FadeIn>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Slide6() {
+  const [activeRole, setActiveRole] = useState(null);
+  const roles = [
+    { role: "Accountant", label: "Runs the model", scope: "Accuracy & timeliness", detail: "Responsible for the day-to-day calculations. Builds and maintains the Excel models. First to feel the friction." },
+    { role: "Controller", label: "Validates the logic", scope: "Control & audit readiness", detail: "Ensures the math ties. Owns the reconciliation process. Bears the burden when auditors push back." },
+    { role: "CFO", label: "Defends the outcome", scope: "Governance & confidence", detail: "Doesn't build the model — but must stand behind it. When LPs challenge a number, the CFO answers." },
+    { role: "Partners", label: "Owns the consequence", scope: "Carry certainty & trust", detail: "Carry, fee income, LP trust. The partner doesn't ask who built the spreadsheet. They ask why the answer was wrong." },
+  ];
+  return (
+    <div style={{ background: C.deepGreen, minHeight: "100%", padding: "40px 72px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <FadeIn delay={100}>
+        <div style={{ width: 70, height: 3, background: C.accentTeal, marginBottom: 12 }} />
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: 38, color: C.mint, fontWeight: 400, marginBottom: 8 }}>Who actually owns the answer?</h2>
+        <p style={{ fontSize: 15, color: C.accentTeal, marginBottom: 32 }}>Ops and accounting own the work. The CFO and partners own the outcome.</p>
+      </FadeIn>
+      <div style={{ display: "flex", gap: 12, flex: 1, alignItems: "stretch", marginBottom: 24 }}>
+        {roles.map((r, i) => (
+          <FadeIn key={i} delay={300 + i * 200} style={{ flex: 1, display: "flex" }}>
+            <div
+              onClick={() => setActiveRole(activeRole === i ? null : i)}
+              style={{
+                background: activeRole === i ? C.accentTeal : C.green,
+                borderRadius: 8, padding: "24px 20px",
+                cursor: "pointer", transition: "all 0.35s ease",
+                display: "flex", flexDirection: "column", flex: 1,
+                transform: activeRole === i ? "scale(1.03)" : "scale(1)",
+              }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 700, color: activeRole === i ? C.deepGreen : C.mint, marginBottom: 8, transition: "color 0.3s" }}>{r.role}</div>
+              <div style={{ width: 50, height: 2, background: activeRole === i ? C.deepGreen : C.accentTeal, marginBottom: 12, transition: "background 0.3s" }} />
+              <div style={{ fontSize: 14, color: activeRole === i ? C.deepGreen : C.mint, marginBottom: 6, transition: "color 0.3s" }}>{r.label}</div>
+              <div style={{ fontSize: 13, color: activeRole === i ? C.deepGreen : C.accentTeal, marginBottom: 12, transition: "color 0.3s", opacity: 0.85 }}>{r.scope}</div>
+              <div style={{
+                fontSize: 13, color: activeRole === i ? C.deepGreen : C.mint,
+                lineHeight: 1.6, marginTop: "auto",
+                maxHeight: activeRole === i ? 100 : 0,
+                overflow: "hidden", transition: "max-height 0.4s ease, opacity 0.3s",
+                opacity: activeRole === i ? 0.9 : 0,
+              }}>{r.detail}</div>
+            </div>
+            {i < 3 && (
+              <div style={{ display: "flex", alignItems: "center", padding: "0 2px", color: C.accentTeal, fontSize: 18 }}>→</div>
+            )}
+          </FadeIn>
+        ))}
+      </div>
+      <FadeIn delay={1200}>
+        <div style={{ background: C.green, borderRadius: 6, padding: "16px 24px" }}>
+          <p style={{ fontSize: 15, color: C.mint, fontStyle: "italic", lineHeight: 1.6, textAlign: "center" }}>
+            When an LP, auditor, or board member challenges a calculation — the partner doesn't ask who built the spreadsheet. They ask why the answer was wrong.
+          </p>
+        </div>
+      </FadeIn>
+    </div>
+  );
+}
+
+function Slide7() {
+  const shifts = [
+    { today: "Manual reconciliation every close", tomorrow: "Centralized calculation logic — reconciled by design" },
+    { today: "Checking formulas across spreadsheets", tomorrow: "Governed rules engine — no formula risk" },
+    { today: "Shadow models to verify admin output", tomorrow: "Single source of truth — audit-ready by default" },
+    { today: "Responding to ad-hoc LP questions", tomorrow: "Pre-configured outputs with full lineage" },
+    { today: "Knowledge concentrated in 1–2 people", tomorrow: "Systemized logic that survives turnover" },
+    { today: "Spreadsheet maintenance as a full-time job", tomorrow: "Teams freed for strategic analysis" },
+  ];
+  const [revealed, setRevealed] = useState(new Set());
+  const toggleRow = (i) => {
+    setRevealed(prev => {
+      const n = new Set(prev);
+      if (n.has(i)) n.delete(i); else n.add(i);
+      return n;
+    });
+  };
+  return (
+    <div style={{ background: C.warmCream, minHeight: "100%", padding: "40px 72px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <FadeIn delay={100}>
+        <div style={{ width: 70, height: 3, background: C.accentTeal, marginBottom: 12 }} />
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: 38, color: C.deepGreen, fontWeight: 400, marginBottom: 28 }}>From operational work to strategic actions</h2>
+      </FadeIn>
+      <div style={{ display: "flex", gap: 0, marginBottom: 8 }}>
+        <div style={{ flex: 1, background: C.darkRed, padding: "10px 20px", borderRadius: "6px 0 0 6px", textAlign: "center" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: 3 }}>TODAY</span>
+        </div>
+        <div style={{ flex: 1, background: C.green, padding: "10px 20px", borderRadius: "0 6px 6px 0", textAlign: "center" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: 3 }}>TOMORROW</span>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {shifts.map((s, i) => (
+          <FadeIn key={i} delay={300 + i * 100}>
+            <div
+              onClick={() => toggleRow(i)}
+              style={{
+                display: "flex", alignItems: "center", cursor: "pointer",
+                background: i % 2 === 0 ? "#fff" : "transparent",
+                borderRadius: 6, padding: "12px 20px",
+                transition: "all 0.3s",
+              }}
+            >
+              <div style={{ flex: 1, fontSize: 16, color: C.darkRed, lineHeight: 1.5 }}>{s.today}</div>
+              <div style={{
+                margin: "0 12px", fontSize: 20, color: C.accentTeal,
+                transform: revealed.has(i) ? "translateX(0)" : "translateX(-4px)",
+                transition: "transform 0.3s",
+              }}>→</div>
+              <div style={{
+                flex: 1, fontSize: 16, color: C.green, lineHeight: 1.5,
+                opacity: revealed.has(i) ? 1 : 0.35,
+                filter: revealed.has(i) ? "none" : "blur(3px)",
+                transition: "all 0.4s ease",
+              }}>{s.tomorrow}</div>
+            </div>
+          </FadeIn>
+        ))}
+      </div>
+      <p style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 16 }}>Click each row to reveal the future state</p>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════
+// NEW SLIDE: Where Maybern Sits (Architecture)
+// ════════════════════════════════════════
+
+function Slide8_Architecture() {
+  const [showMaybern, setShowMaybern] = useState(false);
+  const [hoveredCalc, setHoveredCalc] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [pulledCard, setPulledCard] = useState(null);
+
+  const calcItems = [
+    { label: "Waterfalls", icon: "📊" },
+    { label: "NAV", icon: "📈" },
+    { label: "Distributions", icon: "💰" },
+    { label: "Mgmt Fees", icon: "📋" },
+  ];
+
+  // Collapse animations per card — delay baked into shorthand (name duration timing delay fill)
+  const collapseAnims = {
+    top: "fallTopple 0.7s ease-in 0.05s forwards",
+    mid0: "fallLeft 0.6s ease-in 0.15s forwards",
+    mid1: "fallDown 0.65s ease-in 0.22s forwards",
+    mid2: "fallRight 0.6s ease-in 0.18s forwards",
+    base0: "fallLeft 0.55s ease-in 0.35s forwards",
+    base1: "fallDown 0.5s ease-in 0.4s forwards",
+    base2: "fallDown 0.55s ease-in 0.38s forwards",
+    base3: "fallRight 0.55s ease-in 0.32s forwards",
+  };
+
+  const triggerCollapse = (cardIdx) => {
+    if (collapsed || showMaybern) return;
+    setPulledCard(cardIdx);
+    // Brief pause to show the card sliding out, then everything falls
+    setTimeout(() => setCollapsed(true), 120);
+    // Auto-transition to Maybern after the collapse settles
+    setTimeout(() => setShowMaybern(true), 1800);
+  };
+
+  // Reset everything when toggling back from Maybern
+  const handleBoxClick = () => {
+    if (showMaybern) {
+      setShowMaybern(false);
+      setCollapsed(false);
+      setPulledCard(null);
+    }
+  };
+
+  return (
+    <div style={{ background: C.warmCream, minHeight: "100%", padding: "40px 72px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <FadeIn delay={100}>
+        <div style={{ width: 70, height: 3, background: C.accentTeal, marginBottom: 12 }} />
+        <h2 style={{ fontFamily: "Georgia, serif", fontSize: 38, color: C.deepGreen, fontWeight: 400, marginBottom: 8 }}>Where Maybern sits</h2>
+        <p style={{ fontSize: 17, color: C.muted, marginBottom: 40 }}>We're not replacing your GL. We're not replacing your portal. We're filling the gap where Excel currently lives.</p>
+      </FadeIn>
+
+      {/* Architecture flow */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, flex: 1, padding: "0 20px" }}>
+
+        {/* General Ledger */}
+        <FadeIn delay={300} style={{ flex: "0 0 160px" }}>
+          <div style={{
+            background: C.deepGreen, borderRadius: 10, padding: "28px 20px",
+            textAlign: "center", position: "relative",
+          }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>🏛️</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.mint, marginBottom: 4 }}>General Ledger</div>
+            <div style={{ fontSize: 13, color: C.accentTeal, letterSpacing: 1 }}>SOURCE OF TRUTH</div>
+            <div style={{ fontSize: 13, color: C.mint, opacity: 0.6, marginTop: 8, lineHeight: 1.4 }}>Trial balances, journal entries, chart of accounts</div>
+          </div>
+        </FadeIn>
+
+        {/* Arrow 1 */}
+        <FadeIn delay={500}>
+          <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>data flows</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <div style={{ width: 40, height: 2, background: C.accentTeal }} />
+              <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: `10px solid ${C.accentTeal}` }} />
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* CENTER: The Calculation Layer */}
+        <FadeIn delay={700} style={{ flex: "0 0 320px" }}>
+          <div
+            onClick={handleBoxClick}
+            style={{
+              position: "relative", cursor: showMaybern ? "pointer" : "default",
+              borderRadius: 14, padding: "24px",
+              background: showMaybern ? C.deepGreen : "#fff",
+              border: showMaybern ? `3px solid ${C.accentTeal}` : "2px dashed #ccc",
+              transition: "all 0.6s ease",
+              animation: showMaybern ? "pulseGlow 2.5s infinite" : "none",
+              minHeight: 260, overflow: "hidden",
+            }}
+          >
+            {/* Before: House of Cards */}
+            <div style={{
+              opacity: showMaybern ? 0 : 1,
+              transition: "opacity 0.4s ease",
+              position: showMaybern ? "absolute" : "relative",
+              inset: showMaybern ? "24px" : "auto",
+              pointerEvents: showMaybern ? "none" : "auto",
+            }}>
+              <div style={{ textAlign: "center", marginBottom: 12 }}>
+                <div style={{ fontSize: 14, color: C.darkRed, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>THE CALCULATION LAYER TODAY</div>
+              </div>
+              {/* Stacked Excel icons — precarious tower */}
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, position: "relative" }}>
+                {/* Danger glow underneath the stack */}
+                <div style={{
+                  position: "absolute", bottom: -8, left: "50%", transform: "translateX(-50%)",
+                  width: 200, height: 40, borderRadius: "50%",
+                  background: "radial-gradient(ellipse, rgba(122,27,27,0.12) 0%, transparent 70%)",
+                  animation: collapsed ? "dangerFlash 0.4s ease-out forwards" : "dangerGlow 3s ease-in-out infinite",
+                }} />
+                <div style={{ position: "relative", width: 220, height: 130 }}>
+                  {/* Row 1 — base layer (4 cards) — CLICKABLE to trigger collapse */}
+                  {[0,1,2,3].map(j => {
+                    const isPulled = pulledCard === j;
+                    const ca = collapseAnims[`base${j}`];
+                    return (
+                      <div key={`base-${j}`}
+                        onClick={(e) => { e.stopPropagation(); triggerCollapse(j); }}
+                        style={{
+                          position: "absolute",
+                          left: 8 + j * 52,
+                          top: 80,
+                          width: 48, height: 34,
+                          background: isPulled ? "#ffe0e0" : "#fff",
+                          border: isPulled ? "2px solid #c0a0a0" : "2px solid #d0d0d0",
+                          borderRadius: 3,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          cursor: collapsed ? "default" : "pointer",
+                          animation: isPulled
+                            ? "cardSlideOut 0.5s ease-in forwards"
+                            : collapsed
+                              ? ca
+                              : `wobbleSlow ${3 + j * 0.4}s ease-in-out infinite`,
+                          boxShadow: isPulled ? "0 2px 10px rgba(122,27,27,0.2)" : "0 2px 6px rgba(0,0,0,0.08)",
+                          zIndex: 1,
+                        }}>
+                        <span style={{ fontSize: 12, color: "#1D6F42", fontWeight: 700 }}>XLS</span>
+                      </div>
+                    );
+                  })}
+                  {/* Row 2 — middle layer (3 cards) */}
+                  {[0,1,2].map(j => {
+                    const ca = collapseAnims[`mid${j}`];
+                    return (
+                      <div key={`mid-${j}`} style={{
+                        position: "absolute",
+                        left: 32 + j * 52,
+                        top: 42,
+                        width: 48, height: 34,
+                        background: "#fff",
+                        border: "2px solid #d0d0d0",
+                        borderRadius: 3,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        animation: collapsed
+                          ? ca
+                          : `wobble ${2.2 + j * 0.3}s ease-in-out infinite`,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                        zIndex: 2,
+                      }}>
+                        <span style={{ fontSize: 12, color: "#1D6F42", fontWeight: 700 }}>XLS</span>
+                      </div>
+                    );
+                  })}
+                  {/* Row 3 — top: the danger card */}
+                  <div style={{
+                    position: "absolute",
+                    left: 82,
+                    top: 2,
+                    width: 52, height: 36,
+                    background: "#fff",
+                    border: "2px solid #c0a0a0",
+                    borderRadius: 3,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    animation: collapsed
+                      ? collapseAnims.top
+                      : "wobbleDanger 1.8s ease-in-out infinite",
+                    boxShadow: "0 3px 12px rgba(122,27,27,0.15)",
+                    zIndex: 3,
+                  }}>
+                    <span style={{ fontSize: 12, color: "#1D6F42", fontWeight: 700 }}>XLS</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 600, color: C.darkRed, fontStyle: "italic" }}>
+                  {collapsed ? "One dependency removed. Everything falls." : "House of Cards"}
+                </div>
+                <div style={{ fontSize: 14, color: C.muted, marginTop: 4, lineHeight: 1.4 }}>
+                  {collapsed ? "" : "Pull a foundation card to see what happens"}
+                </div>
+              </div>
+              {/* Calc items below */}
+              {!collapsed && (
+                <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 14 }}>
+                  {calcItems.map((c, i) => (
+                    <div key={i} style={{
+                      background: "#f5f5f0", borderRadius: 4, padding: "6px 10px",
+                      fontSize: 14, color: C.muted, textAlign: "center",
+                    }}>
+                      <div style={{ fontSize: 18, marginBottom: 2 }}>{c.icon}</div>
+                      {c.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* After: Maybern */}
+            <div style={{
+              opacity: showMaybern ? 1 : 0,
+              transition: "opacity 0.5s ease 0.2s",
+              position: showMaybern ? "relative" : "absolute",
+              inset: showMaybern ? "auto" : "24px",
+              pointerEvents: showMaybern ? "auto" : "none",
+            }}>
+              <div style={{ textAlign: "center", marginBottom: 16 }}>
+                <div style={{ fontSize: 14, color: C.accentTeal, fontWeight: 700, letterSpacing: 3, marginBottom: 8 }}>THE CALCULATION LAYER WITH MAYBERN</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontWeight: 700, color: C.accentTeal, fontSize: 20 }}>ıılı</span>
+                  <span style={{ color: C.mint, fontSize: 22, fontWeight: 300 }}>maybern</span>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {calcItems.map((c, i) => (
+                  <div
+                    key={i}
+                    onMouseEnter={() => setHoveredCalc(i)}
+                    onMouseLeave={() => setHoveredCalc(null)}
+                    style={{
+                      background: hoveredCalc === i ? C.accentTeal : C.green,
+                      borderRadius: 6, padding: "12px 14px",
+                      textAlign: "center", transition: "all 0.3s",
+                    }}
+                  >
+                    <div style={{ fontSize: 16, marginBottom: 4 }}>{c.icon}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: hoveredCalc === i ? C.deepGreen : C.mint, transition: "color 0.3s" }}>{c.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ textAlign: "center", marginTop: 12 }}>
+                <div style={{ fontSize: 15, color: C.mint, opacity: 0.8, lineHeight: 1.5 }}>Centralized · Version-controlled · Audit-ready</div>
+              </div>
+            </div>
+          </div>
+          <p style={{ fontSize: 15, color: C.muted, textAlign: "center", marginTop: 8 }}>
+            {showMaybern ? "Click to reset" : collapsed ? "" : "Click a foundation card to collapse — then see Maybern"}
+          </p>
+        </FadeIn>
+
+        {/* Arrow 2 */}
+        <FadeIn delay={900}>
+          <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>outputs</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <div style={{ width: 40, height: 2, background: C.accentTeal }} />
+              <div style={{ width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: `10px solid ${C.accentTeal}` }} />
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* Investor Portal */}
+        <FadeIn delay={1100} style={{ flex: "0 0 160px" }}>
+          <div style={{
+            background: C.deepGreen, borderRadius: 10, padding: "28px 20px",
+            textAlign: "center",
+          }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>🖥️</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.mint, marginBottom: 4 }}>Investor Portal</div>
+            <div style={{ fontSize: 13, color: C.accentTeal, letterSpacing: 1 }}>LP-FACING OUTPUT</div>
+            <div style={{ fontSize: 13, color: C.mint, opacity: 0.6, marginTop: 8, lineHeight: 1.4 }}>Capital calls, distributions, statements, K-1s</div>
+          </div>
+        </FadeIn>
+      </div>
+    </div>
+  );
+}
+
+function Slide10() {
+  return (
+    <div style={{ background: C.deepGreen, minHeight: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px 80px", position: "relative" }}>
+      <FadeIn delay={100}>
+        <div style={{ width: 80, height: 3, background: C.accentTeal, marginBottom: 16 }} />
+        <div style={{ fontSize: 15, color: C.accentTeal, letterSpacing: 5, fontWeight: 400, marginBottom: 12 }}>NEXT STEP</div>
+      </FadeIn>
+      <FadeIn delay={500}>
+        <h1 style={{ fontFamily: "Georgia, serif", fontSize: 40, color: C.mint, fontWeight: 400, lineHeight: 1.2, marginBottom: 24, maxWidth: 700 }}>
+          It probably makes sense to go one level deeper and map this to your structure.
+        </h1>
+      </FadeIn>
+      <FadeIn delay={900}>
+        <p style={{ fontSize: 17, color: C.mint, opacity: 0.8, lineHeight: 1.6, maxWidth: 600 }}>
+          Would it make sense to schedule a working session with whoever owns the calculation layer?
+        </p>
+      </FadeIn>
+      <FadeIn delay={1200}>
+        <div style={{ position: "absolute", bottom: 40, left: 80, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontWeight: 700, color: C.accentTeal, fontSize: 16 }}>ıılı</span>
+          <span style={{ color: C.accentTeal, fontSize: 16 }}>maybern</span>
+        </div>
+      </FadeIn>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════
+// SPEAKER NOTES DATA
+// ════════════════════════════════════════
+const speakerNotes = {
+  1: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 1 — TITLE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: This is your handshake. Name, title, one sentence. Nothing more.\n\nDon't linger. 10 seconds max.\n\nTransition: \"Before I show you anything about Maybern, I want to share an observation from every fund finance conversation I've had this year…\"",
+
+  2: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 2 — THE STATUS QUO\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: You're not teaching. You're narrating their life back to them. If they're nodding, you're winning.\n\n🔹 Principle: REFRAME THE STATUS QUO — Make the current state feel less safe than staying put.\n\n⏱️ RETENTION NOTE: This is your PRIMACY window. The first 2 minutes are where ~70% of recall is locked in. Deliver this opening statement with conviction and PAUSE after the key line. This is the single most important minute of the entire demo.\n\n━━━ FULL OPENING STATEMENT (deliver conversationally) ━━━\n\n\"Most fund finance teams I speak with don't have a reporting problem — the admin produces statements, the GL ties, the portal works. Where things get heavy is the calculation layer. The waterfall logic, the fee math, the equalization, the side-letter adjustments — that intelligence usually lives in several Excel models that have been rolled forward for years.\n\nIt works. Until scale changes the equation.\n\nEvery new fund adds another version. Every variant adds another branch in the logic. Every new LP term adds another exception. And now you're not just running numbers — you're defending them.\n\nDefending why the carry triggered. Defending why the fee base stepped down. Defending why ownership shifted after a late close.\n\nExcel isn't going away — but it wasn't designed to be the system of record for multi-entity, event-driven fund math.\n\nSo the real inefficiency isn't that it takes time. It's that confidence doesn't scale at the same rate complexity does. And when you're managing three, four, five active vehicles — the hours per fund don't grow linearly. The fragility does.\"\n\n━━━ END STATEMENT ━━━\n\n[PAUSE. Let it land. Don't rush to the next slide.]\n\nAsk nothing yet. Just let them nod.\n\nTransition: \"So what does that fragility actually look like inside most teams?\"",
+
+  3: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 3 — WHERE THE LOGIC LIVES → MAYBERN'S ANSWER\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: This is a TWO-PHASE slide. Phase 1 surfaces the problem. Phase 2 reveals the solution. Let the prospect drive the transition by confirming the problem before you flip to the answer.\n\n══════════════════════════════════════\n  PHASE 1: THE PROBLEM (red cards face-up)\n══════════════════════════════════════\n\n🔹 Principle: UNCONSIDERED NEEDS — You're surfacing risks they've normalized. The goal is recognition, not education.\n\nWalk through each card briefly. Point, don't read. Say:\n\n\"These are the four models that power most fund economics. They all live in Excel. They all carry hidden exposure. Let me walk you through them.\"\n\n[GESTURE to each card as you name it — don't read the risk text, just the title.]\n\n🔍 Discovery Questions (pick 1-2):\n• \"Where does the waterfall and fee logic actually live today?\"\n• \"How do you validate those calculations before numbers go out to investors?\"\n• \"Where do manual overrides or side calculations tend to creep in?\"\n\n🗣️ LISTEN FOR: \"It mostly lives in Excel\" / \"We reconcile against the administrator each quarter\" / \"Side letters create manual adjustments\"\n\n✅ EXIT CRITERIA: At least one head-nod or verbal confirmation that they recognize these models. If they push back or say 'that's not us,' recalibrate — ask which models DO live in Excel for them.\n\nOnce confirmed, transition to Phase 2:\n\"So that's the exposure. Let me show you what each of these becomes.\"\n\n══════════════════════════════════════\n  PHASE 2: FLIP EACH CARD (deliver one at a time)\n══════════════════════════════════════\n\n⚡ IMPORTANT: Don't flip all four at once. Flip ONE card, deliver the line, pause, then flip the next. Each flip is a micro-moment of contrast.\n\n━━━ CARD 1: Waterfall / Carry Model → Waterfall Engine ━━━\n[CLICK to flip]\n\n\"This is the model that determines who gets paid and how much. Today it's a spreadsheet someone built years ago and rolled forward every quarter. With Maybern, it becomes a governed engine — whole-fund, deal-by-deal, hybrid structures — with full LP-level lineage on every calculation.\"\n\n[PAUSE. Let them read the bullet points.]\n\n━━━ CARD 2: Management Fees & Offsets → Fee Calculation ━━━\n[CLICK to flip]\n\n\"Fee math seems simple until you layer in step-downs, offsets, and 15 different side letter terms. Every quarter someone's recalculating manually and hoping nothing slipped. Maybern handles all of it — committed, invested, NAV-based — with a full audit trail on every adjustment.\"\n\n[PAUSE.]\n\n━━━ CARD 3: LP Ownership & Allocations → Allocation Engine ━━━\n[CLICK to flip]\n\n\"Ownership percentages touch everything downstream — NAV, distributions, K-1s. But when a late close happens, or a transfer, or an LP opts out of a deal — these models don't talk to each other. Maybern centralizes it. One change propagates everywhere, automatically.\"\n\n[PAUSE.]\n\n━━━ CARD 4: Preferred Return / Hurdle → Governance & Defensibility ━━━\n[CLICK to flip]\n\n\"This is where the stakes get personal — carry, pref, the numbers that determine GP compensation. The logic is date-sensitive, compounding, and usually lives in one person's head. Maybern makes every calculation explainable and traceable — built for the auditor who's going to ask 'show me how you got there.'\"\n\n[PAUSE. The architecture bar now appears: GL → Maybern → Portal.]\n\n══════════════════════════════════════\n  PHASE 3: ANCHOR THE HEADLINE\n══════════════════════════════════════\n\nThe heading has now changed to: \"If you don't own the logic layer, you don't really own the right answer.\"\n\n[Point to the architecture bar.]\n\n\"On the left, your GL — source of truth. On the right, investor-facing output. And in the middle — Maybern replaces the Excel models that sit between them. Centralized, version-controlled, audit-ready.\"\n\n[PAUSE. Don't over-explain features — save those for the working session.]\n\n🔍 Post-flip Discovery Questions (pick 1):\n• \"What would you need to see to feel confident this is not just a tool, but a safer operating model?\"\n• \"How does your current workflow hold up during a fundraise or audit cycle compared to a normal quarterly close?\"\n\n🗣️ LISTEN FOR: \"This would eliminate our shadow spreadsheet\" / \"We would still use the admin but finally own the math\" / \"This feels more controlled\"\n\nTransition: \"Any one of these is manageable in isolation. Let me show you what happens when just one number goes wrong…\"",
+
+  4: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 4 — COMPLEXITY DRIVERS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: It's not the math that breaks. It's the logic underneath the math — and that logic gets heavier with every fund.\n\n🔹 Principle: BUILD THE UNCONSIDERED NEEDS INVENTORY — Each driver they nod to becomes ammunition for urgency later.\n\n⚡ PATTERN INTERRUPT: This is entering the HAMMOCK ZONE where retention drops to ~20%. Break the pattern here.\n\nTACTIC: Don't present all 6. Instead, scan the cards and say:\n\"I'm going to skip the ones that probably don't apply to you. Which of these are you dealing with?\"\n\nLet THEM pick. This flips from presentation to conversation and re-engages their brain.\n\nAdjust emphasis based on fund type:\n• PE: Step-downs, side letters, co-invests\n• Real Estate: Asset-level promotes, geographic carve-outs\n• Credit: Fee bases, side letters\n\n🔍 Discovery Questions:\n• \"At your current fund size this process appears to work. What changes operationally when you launch another vehicle?\"\n• \"If nothing breaks this quarter, what does this look like six quarters from now when fund count and reporting volume increase?\"\n• \"How dependent is this model on specific individuals who understand its structure?\"\n\nKey line: \"Most funds don't struggle with the math. They struggle with the logic.\"\n\n📊 McKINSEY CREDIBILITY ANCHOR (use verbally, don't read the slide):\n\"McKinsey surveyed 24 GPs in 2018 and found that operational complexity doesn't scale linearly with AUM. Smaller firms need 22–30 people per billion. Mid-size firms get that down to 9. But firms above $50 billion? They're back up to 8 per billion. The efficiency gains you'd expect from scale just don't materialize in back-office operations — and that's before you layer in the calculation logic.\"\n\nSource: McKinsey, 'How Private Equity Is Tackling Operational Complexity,' 2018\n\n✅ EXIT CRITERIA: They've named at least 2-3 complexity drivers from their own experience. If they haven't spoken yet, you haven't earned the right to move forward.\n\n🗣️ LISTEN FOR: \"Only two people really understand the waterfall\" / \"It works right now\" / Fund-specific pain points they volunteer",
+
+  5: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 5 — BREAKING POINTS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: These events don't create new problems — they expose the ones you've been managing around.\n\n🔹 Principle: ANCHOR URGENCY TO TIMING — Connect their existing timeline to the risk you've been building. Don't manufacture urgency — attach to reality.\n\n⚡ PATTERN INTERRUPT: Change your physical posture or tone. Lean in slightly. Lower your voice a half-step. Say:\n\"I'm going to show you a list — but I only care about one of these. Which one is closest to YOUR timeline right now?\"\n\nThis forces them to self-identify their urgency trigger instead of you telling them what to worry about.\n\n🔍 Discovery Questions:\n• \"If the primary logic owner were unavailable during close, how exposed would the team feel?\"\n• \"What does the upcoming fundraise, audit cycle, or reporting milestone change about how comfortable you are waiting?\"\n• \"If you had to walk through one of those calculations line-by-line with an LP or auditor tomorrow, how straightforward would that be?\"\n\nIf they say 'first realization' or 'paying carry for the first time' — that's gold. Those are irreversible economic events.\n\n🗣️ LISTEN FOR: Timeline-specific answers — fundraise dates, audit windows, new fund launches. These become your urgency anchors for the rest of the deal.\n\nTransition: \"Let me show you where this gap actually sits in the architecture…\"",
+
+  6: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 6 — WHERE MAYBERN SITS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: We're not replacing your GL. We're not replacing your portal. We're filling the gap where Excel currently lives.\n\n🔹 Principle: VISUAL ANCHOR / MOMENT OF INSIGHT — This diagram creates the 'aha moment.' The prospect sees the fragility of the middle layer in one glance.\n\n⚡ PATTERN INTERRUPT: The click-to-transform interaction IS the interrupt. Start with the house of cards visible and say:\n\n\"On the left, you have your GL — your source of truth. On the right, you have the investor portal — the LP-facing output. And in between?\"\n\n[GESTURE to the wobbly Excel cards]\n\n\"That's where Excel lives today. Waterfalls, fees, NAV, distributions — all sitting in a house of cards.\"\n\n[CLICK to reveal Maybern]\n\n\"Maybern sits in this exact gap. We centralize the calculation layer so the logic is governed, version-controlled, and audit-ready.\"\n\n🔍 Discovery Questions:\n• \"Where would you expect a centralized calculation layer to sit relative to your General Ledger and your investor portal?\"\n• \"If two systems both technically worked, what would make one safer or more defensible for you long term?\"\n• \"If you had to scale this exact process across additional vehicles, what breaks first?\"\n\n🗣️ LISTEN FOR: \"This would eliminate our shadow spreadsheet\" / \"We would still use the administrator but finally own the math\" / \"This mirrors how our structure actually works\"\n\nTransition: \"So the question becomes — how do you move from managing this manually to actually owning the logic layer?\"",
+
+  7: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 7 — THE SHIFT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: This isn't about replacing what works. It's about making what works defensible at scale.\n\n🔹 Principle: CREATE CONTRAST (TODAY vs. TOMORROW) — The left column should feel heavy. The right should feel inevitable.\n\n⚡ PATTERN INTERRUPT: The blurred 'tomorrow' column is the interrupt. Don't reveal all at once — click to reveal one row at a time and say:\n\"Tell me if this resonates…\"\n\nThis creates micro-moments of engagement in every row instead of a wall of text.\n\nDon't read every row. Pick 2-3 that resonate most based on what the prospect has said earlier.\n\nKey framing: \"None of these are impossible to do today. The question is whether they happen because someone remembers, or because the system enforces them.\"\n\nTransition: \"Let me show you exactly what that logic layer includes…\"",
+
+  8: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 8 — MAYBERN PRODUCT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: The value isn't speed. It's that the logic layer becomes defensible — every calculation explainable, every output traceable.\n\n🔹 Principle: DIFFERENTIATED POSITIONING (WHY US) — Position against the status quo, not against competitors. The enemy is Excel fragility, not another vendor.\n\n⏱️ RETENTION NOTE: You're now entering the RECENCY window. The last 3 minutes carry ~90% recall. Everything from here forward needs to be sharp, confident, and memorable.\n\nKeep this tight. Don't over-explain features. 60 seconds max.\n\n🔍 Discovery Questions:\n• \"What would you need to see in order to feel confident that this is not just a tool, but a safer operating model?\"\n• \"How does your current workflow hold up during a fundraise or audit cycle compared to a normal quarterly close?\"\n\nKey line: \"If you don't own the logic layer, you don't really own the right answer.\"\n\nDon't linger on product details — save those for the working session. This slide exists to make the solution feel credible, not to demo it.\n\n🗣️ LISTEN FOR: \"This would make close easier\" / \"This feels more controlled\" / \"This would save us X hours per quarter\"\n\nTransition: \"Before we wrap — I want to talk about who actually owns this answer inside your organization…\"",
+
+  9: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 9 — WHO OWNS THE ANSWER?\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: Ops and accounting own the work. The CFO and partners own the outcome. That gap is the whole problem.\n\n🔹 Principle: SHIFT OWNERSHIP TO THE ECONOMIC BUYER — Move the conversation from the person doing the work to the person who bears the consequence.\n\n⏱️ RECENCY ZONE: This is the 2nd-to-last slide. You're setting up the ask by establishing WHO needs to be involved.\n\n⚡ PATTERN INTERRUPT: This slide has a DARK BACKGROUND — that's a visual interrupt by design. The shift from cream to dark green signals 'pay attention, something just changed.'\n\nTACTIC: Walk left to right with your hand or cursor:\n\"The accountant runs the model. The controller validates the logic. But when an LP questions a carry calculation — it's the CFO who defends the outcome. And ultimately, the partners who own the consequence.\"\n\n[PAUSE after 'the partners who own the consequence.']\n\n🔍 Getting Above the Power Line:\n• \"When an LP, auditor, or board member challenges a specific calculation, who ultimately has to defend that outcome?\"\n• \"Who signs off on investments in finance infrastructure or system changes?\"\n• \"Who else needs to be involved to evaluate this safely — not just functionally?\"\n\n🔍 Understanding the Buying Process:\n• \"What does your internal approval process look like step-by-step if you decided to move forward?\"\n\n✅ EXIT CRITERIA: They've identified who owns the economic consequence in their org — even if they don't use that language. If they say 'our CFO' or 'our managing partner reviews these,' you've successfully shifted the frame from operational to economic.\n\n🗣️ LISTEN FOR: \"The CFO signs off\" / \"Our managing partner reviews these\" / Names and titles of decision-makers. Log these — they become your stakeholder map.\n\nTransition: \"Based on everything we've discussed…\"",
+
+  10: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 10 — NEXT STEP\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: The ask should feel like the logical conclusion, not a sales move. You've earned this.\n\n🔹 Principle: EARN THE RIGHT TO DIAGNOSE — The ask is proportional to the value you've built. You're proposing a joint working session, not selling a demo.\n\n⏱️ RECENCY ZONE: This is the LAST thing they'll remember. Deliver with calm confidence.\n\nScript:\n\"Based on what we've discussed, the calculation layer is where the real exposure lives. Rather than assuming where risk exists, the next logical step would be to schedule a deeper working session where we map this workflow end-to-end.\n\nWould it make sense to schedule that with whoever owns the calculation layer?\"\n\n[STOP. Wait for response. Do not fill the silence.]\n\n🔍 After They Agree — Get Above the Power Line:\n• \"To pressure-test your structure properly, we'll need to review sample waterfall language and real files. Would that require an NDA?\"\n• \"Who else needs to be in the room to evaluate this safely — not just functionally?\"\n• \"What does the path from 'this makes sense' to 'let's move forward' look like inside your org?\"\n\n👀 Watch for your champion: Who proactively offers to schedule? Who leans in? Who asks follow-ups? That's your internal advocate.\n\nClient homework (share only after they agree):\n• Confirm the logic/waterfall owner attends\n• Bring one recent capital call or distribution\n• Confirm fund count and growth plans\n\n✅ EXIT CRITERIA FOR STAGE 1: The logic layer lives outside core systems (confirmed). Manual reconciliation and validation exist (confirmed). Complexity increases over time (confirmed). There is potential exposure as fund structures scale (confirmed). If all four are true, Stage 1 is complete.",
+};
+
+// Cascade slide notes (inserted at position 4, avoids renumbering existing notes)
+const cascadeNotes = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎯 SLIDE 4 — THE CASCADE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📌 Framing: This isn't theoretical. This is what happens when one number is wrong in one spreadsheet — and no one catches it until distributions go out.\n\n🔹 Principle: UNCONSIDERED NEEDS (CONCRETE PROOF) — You're making the abstract risk visceral. One fat finger → every investor affected.\n\n⚡ PATTERN INTERRUPT: This is fully interactive. Don't narrate — let them WATCH it happen.\n\nTACTIC: Set up the scenario verbally, then click:\n\n\"Let me show you something. Imagine it's Q4 close. $500 million fund, 30 LPs. An analyst is updating capital accounts and enters $5 million instead of $50 million for LP-3. One missing zero.\"\n\n[CLICK the Capital Account node]\n\n[Let the cascade animate silently. Don't talk over it. Let the red spread.]\n\n\"That one cell just affected every model in the stack. Ownership percentages. Fee calculations. The waterfall. Every other LP's allocation. The distribution notice. The K-1 tax filings. The investor portal.\"\n\n[PAUSE]\n\n\"And every one of those models lives in a separate spreadsheet with no version control and no audit trail.\"\n\n🔍 Discovery Questions:\n• \"Has something like this ever happened — even a small version of it?\"\n• \"How would you know if this happened today before distributions went out?\"\n• \"What's the process for catching an error that spans multiple models?\"\n\n🗣️ LISTEN FOR: \"We double-check everything manually\" / \"We've had scares\" / \"That's why close takes so long\" / Any admission of near-misses.\n\nThe CASCADE NUMBERS are real:\n• Ownership: 10% → 1% (zero-sum, so all 29 other LPs absorb the 9%)\n• Mgmt Fees: 2% × $45M = $900K/yr underbilled\n• NAV: LP-3 shows $5.2M instead of $52M\n• GP Carry: triggers at wrong threshold because preferred return base is wrong\n• Distribution Notice: wrong wire amounts to ALL 30 investors\n\nTransition: \"Now let me show you what makes this worse as you scale…\"";
+
+// Note lookup: cascade inserted at index 3, existing notes stay numbered 1-10
+function getNote(slideIndex) {
+  if (slideIndex === 3) return cascadeNotes;
+  if (slideIndex < 3) return speakerNotes[slideIndex + 1];
+  // Indices 8+ skip old Maybern slide (was speakerNotes key 8)
+  if (slideIndex >= 8) return speakerNotes[slideIndex + 1];
+  return speakerNotes[slideIndex];
+}
+
+// ════════════════════════════════════════
+// MAIN APP
+// ════════════════════════════════════════
+const slideComponents = [Slide1, Slide2, Slide3, Slide_Cascade, Slide4, Slide5, Slide8_Architecture, Slide7, Slide6, Slide10];
+const totalSlides = slideComponents.length;
+
+// ─── Audience-only window (clean, no controls) ───
+function AudienceView({ slideIndex }) {
+  const SlideComponent = slideComponents[slideIndex];
+  return (
+    <div style={{ width: "100vw", height: "100vh", background: "#1a1a1a", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      <div style={{ position: "absolute", inset: 0, overflow: "auto" }}>
+        <SlideComponent />
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [current, setCurrent] = useState(0);
+  const [showNotes, setShowNotes] = useState(false);
+  const [key, setKey] = useState(0);
+  const [presenting, setPresenting] = useState(false);
+  const [audienceWin, setAudienceWin] = useState(null);
+
+  // Check if this window was opened as the audience view
+  const [isAudience] = useState(() => {
+    try { return window.name === "maybern_audience"; } catch(e) { return false; }
+  });
+
+  // Listen for slide changes from presenter (audience window)
+  useEffect(() => {
+    if (!isAudience) return;
+    const handler = (e) => {
+      if (e.data && e.data.type === "maybern_slide") {
+        setCurrent(e.data.index);
+        setKey(k => k + 1);
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [isAudience]);
+
+  const goTo = useCallback((idx) => {
+    setCurrent(idx);
+    setKey(k => k + 1);
+    // Sync to audience window if presenting
+    if (audienceWin && !audienceWin.closed) {
+      audienceWin.postMessage({ type: "maybern_slide", index: idx }, "*");
+    }
+  }, [audienceWin]);
+
+  // Start presenter mode
+  const startPresenting = useCallback(() => {
+    const win = window.open(window.location.href, "maybern_audience",
+      "width=" + screen.width + ",height=" + screen.height + ",left=0,top=0");
+    if (win) {
+      setAudienceWin(win);
+      setPresenting(true);
+      setShowNotes(true);
+      // Send initial slide after window loads
+      setTimeout(() => {
+        win.postMessage({ type: "maybern_slide", index: current }, "*");
+      }, 2000);
+    }
+  }, [current]);
+
+  // Stop presenter mode
+  const stopPresenting = useCallback(() => {
+    if (audienceWin && !audienceWin.closed) audienceWin.close();
+    setAudienceWin(null);
+    setPresenting(false);
+  }, [audienceWin]);
+
+  // Check if audience window was closed externally
+  useEffect(() => {
+    if (!presenting || !audienceWin) return;
+    const check = setInterval(() => {
+      if (audienceWin.closed) { setPresenting(false); setAudienceWin(null); }
+    }, 1000);
+    return () => clearInterval(check);
+  }, [presenting, audienceWin]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); if (current < totalSlides - 1) goTo(current + 1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); if (current > 0) goTo(current - 1); }
+      if (e.key === "n" || e.key === "N") setShowNotes(p => !p);
+      if (e.key === "Escape" && presenting) stopPresenting();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [current, goTo, presenting, stopPresenting]);
+
+  // If this is the audience window, render clean slide only
+  if (isAudience) {
+    return <AudienceView slideIndex={current} />;
+  }
+
+  const SlideComponent = slideComponents[current];
+  const nextSlideIdx = current + 1 < totalSlides ? current + 1 : null;
+  const NextSlideComponent = nextSlideIdx !== null ? slideComponents[nextSlideIdx] : null;
+
+  return (
+    <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column", background: "#1a1a1a", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+
+      {/* Presenter mode header bar */}
+      {presenting && (
+        <div style={{ background: C.accentTeal, padding: "6px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ff3b30", animation: "pulseGlow 2s infinite" }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.deepGreen, letterSpacing: 2 }}>PRESENTER MODE</span>
+            <span style={{ fontSize: 11, color: C.deepGreen, opacity: 0.7 }}>— Audience sees slides only on their screen</span>
+          </div>
+          <button onClick={stopPresenting} style={{ background: C.deepGreen, color: C.mint, border: "none", borderRadius: 4, padding: "4px 12px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>END PRESENTATION</button>
+        </div>
+      )}
+
+      {/* Main content area */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+
+        {/* Current slide preview */}
+        <div style={{ flex: 1, position: "relative" }}>
+          {presenting && (
+            <div style={{ position: "absolute", top: 8, left: 12, zIndex: 10, fontSize: 9, color: "#fff", background: "rgba(0,0,0,0.5)", padding: "3px 8px", borderRadius: 3 }}>
+              SLIDE {current + 1} of {totalSlides}
+            </div>
+          )}
+          <div key={key} style={{ position: "absolute", inset: 0, overflow: "auto" }}>
+            <SlideComponent />
+          </div>
+        </div>
+
+        {/* Right panel: Notes (+ next slide preview in presenter mode) */}
+        {(showNotes || presenting) && (
+          <div style={{
+            width: presenting ? 380 : 320, background: "#111", borderLeft: "1px solid #333",
+            display: "flex", flexDirection: "column", overflow: "hidden",
+          }}>
+            {/* Next slide preview (presenter mode only) */}
+            {presenting && NextSlideComponent && (
+              <div style={{ flex: "0 0 auto", borderBottom: "1px solid #333" }}>
+                <div style={{ fontSize: 9, color: C.accentTeal, letterSpacing: 2, fontWeight: 600, padding: "8px 16px 4px", background: "#0a0a0a" }}>NEXT SLIDE</div>
+                <div style={{ height: 140, position: "relative", overflow: "hidden", background: "#222" }}>
+                  <div style={{ transform: "scale(0.25)", transformOrigin: "top left", width: "400%", height: "400%", pointerEvents: "none" }}>
+                    <NextSlideComponent />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Speaker notes */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+              <div style={{ fontSize: 10, color: C.accentTeal, letterSpacing: 3, fontWeight: 600, marginBottom: 12 }}>SPEAKER NOTES</div>
+              <pre style={{ fontSize: presenting ? 13 : 12, color: "#ccc", whiteSpace: "pre-wrap", lineHeight: 1.7, fontFamily: "'Inter', sans-serif" }}>
+                {getNote(current)}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation bar */}
+      <div style={{
+        background: "#111", borderTop: "1px solid #333",
+        padding: "10px 24px", display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <button
+          onClick={() => current > 0 && goTo(current - 1)}
+          disabled={current === 0}
+          style={{ background: "none", border: "none", color: current === 0 ? "#444" : "#aaa", fontSize: 18, cursor: current === 0 ? "default" : "pointer", padding: "4px 8px" }}
+        >◀</button>
+
+        <div style={{ display: "flex", gap: 4, flex: 1, justifyContent: "center", flexWrap: "wrap" }}>
+          {slides.map((s, i) => (
+            <button
+              key={s.id}
+              onClick={() => goTo(i)}
+              style={{
+                background: i === current ? C.accentTeal : "#222",
+                color: i === current ? C.deepGreen : "#888",
+                border: "none", borderRadius: 4,
+                padding: "6px 10px", fontSize: 9, fontWeight: i === current ? 700 : 400,
+                cursor: "pointer", transition: "all 0.2s", letterSpacing: 0.5,
+              }}
+            >{s.label}</button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => current < totalSlides - 1 && goTo(current + 1)}
+          disabled={current === totalSlides - 1}
+          style={{ background: "none", border: "none", color: current === totalSlides - 1 ? "#444" : "#aaa", fontSize: 18, cursor: current === totalSlides - 1 ? "default" : "pointer", padding: "4px 8px" }}
+        >▶</button>
+
+        {!presenting ? (
+          <>
+            <button
+              onClick={() => setShowNotes(p => !p)}
+              style={{
+                background: showNotes ? C.accentTeal : "#333",
+                color: showNotes ? C.deepGreen : "#aaa",
+                border: "none", borderRadius: 4,
+                padding: "6px 14px", fontSize: 10, fontWeight: 600,
+                cursor: "pointer", marginLeft: 8, letterSpacing: 1,
+              }}
+            >NOTES</button>
+            <button
+              onClick={startPresenting}
+              style={{
+                background: C.green,
+                color: C.mint,
+                border: "none", borderRadius: 4,
+                padding: "6px 14px", fontSize: 10, fontWeight: 600,
+                cursor: "pointer", marginLeft: 4, letterSpacing: 1,
+              }}
+            >▶ PRESENT</button>
+          </>
+        ) : (
+          <div style={{ marginLeft: 8, fontSize: 10, color: C.accentTeal, fontWeight: 600, letterSpacing: 1 }}>
+            LIVE • ESC to end
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>

@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Outbound Playbook 2026 — Maybern</title>
+  <style>
+    /* ────────────────────────────────────────────────────────────────────────────────
+       MAYBERN BRAND — CSS VARIABLES & BASE STYLES
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    :root {
+      /* ── Brand Core ── */
+      --deep-green:   #091D13;
+      --dark-green:   #092115;
+      --green:        #17412D;
+      --mint:         #ECFFF5;
+      --light-mint:   #F6FFFA;
+
+      /* ── Semantic Mapping (Light Mode — default) ── */
+      --primary:      var(--deep-green);
+      --primary-dark: var(--dark-green);
+      --primary-mid:  var(--green);
+      --text-light:   var(--mint);
+      --text-dark:    var(--dark-green);
+      --bg-light:     var(--light-mint);
+      --bg-tint:      #E0F5EA;
+      --border-light: #C8E6D5;
+
+      /* ── Text Shades ── */
+      --text-secondary: #444444;
+      --text-muted:     #666666;
+      --text-faint:     #888888;
+
+      /* ── Status Colors ── */
+      --green-status:  #22C55E;
+      --amber:         #F59E0B;
+      --red:           #EF4444;
+      --blue-accent:   #3B82F6;
+    }
+
+    /* ── Status Backgrounds ── */
+    :root {
+      --warn-bg:       #FEF3C7;
+      --success-bg:    #DCFCE7;
+      --critical-bg:   #FEE2E2;
+      --warn-text:     #92400E;
+      --success-text:  #166534;
+      --critical-text: #991B1B;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-light);
+      color: var(--text-dark);
+      line-height: 1.6;
+      font-size: 14px;
+      font-weight: 300;
+    }
+
+    .document {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       COVER PAGE
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .cover {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--text-light);
+      padding: 120px 60px;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(ellipse at 20% 50%, rgba(236, 255, 245, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(236, 255, 245, 0.08) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .cover-tag {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      font-weight: 600;
+      color: var(--mint);
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover-title {
+      font-size: 56px;
+      font-weight: 300;
+      letter-spacing: -1px;
+      color: var(--text-light);
+      margin: 20px 0 0 0;
+      line-height: 1.1;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover-sub {
+      font-size: 18px;
+      font-weight: 300;
+      color: rgba(236, 255, 245, 0.9);
+      margin: 20px 0 0 0;
+      max-width: 600px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover-bar {
+      width: 60px;
+      height: 3px;
+      background: var(--mint);
+      margin: 30px auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover-meta {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: rgba(236, 255, 245, 0.7);
+      margin-top: 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       TABLE OF CONTENTS
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .toc {
+      padding: 60px;
+      background: var(--bg-light);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .toc h2 {
+      font-size: 20px;
+      font-weight: 400;
+      margin-bottom: 30px;
+      color: var(--primary);
+    }
+
+    .toc-list {
+      list-style: none;
+      columns: 1;
+    }
+
+    .toc-item {
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .toc-item strong {
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       SECTIONS & TYPOGRAPHY
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    section {
+      padding: 60px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    section:last-of-type {
+      border-bottom: none;
+    }
+
+    .section-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 600;
+      color: var(--primary-mid);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 32px;
+      font-weight: 300;
+      letter-spacing: -0.5px;
+      margin-bottom: 16px;
+      color: var(--primary);
+    }
+
+    .section-lead {
+      font-size: 15px;
+      font-weight: 300;
+      color: var(--text-secondary);
+      margin-bottom: 30px;
+      line-height: 1.7;
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: var(--text-secondary);
+      font-weight: 300;
+    }
+
+    strong {
+      font-weight: 500;
+      color: var(--primary-dark);
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       KPI ROW
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin: 30px 0;
+    }
+
+    .kpi-box {
+      background: var(--bg-tint);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid var(--border-light);
+    }
+
+    .kpi-val {
+      font-size: 30px;
+      font-weight: 300;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .kpi-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 600;
+      color: var(--primary-mid);
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       CALLOUT BOXES
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .callout-dark {
+      background: var(--primary);
+      color: var(--text-light);
+      padding: 24px 28px;
+      border-radius: 8px;
+      margin: 24px 0;
+    }
+
+    .callout-dark strong {
+      color: var(--mint);
+    }
+
+    .callout-light {
+      background: var(--bg-tint);
+      border-left: 4px solid var(--primary-mid);
+      padding: 20px 24px;
+      border-radius: 0 8px 8px 0;
+      margin: 24px 0;
+    }
+
+    .callout-warn {
+      background: var(--warn-bg);
+      border-left: 4px solid var(--amber);
+      padding: 20px 24px;
+      border-radius: 0 8px 8px 0;
+      margin: 24px 0;
+      color: var(--warn-text);
+    }
+
+    .callout-success {
+      background: var(--success-bg);
+      border-left: 4px solid var(--green-status);
+      padding: 20px 24px;
+      border-radius: 0 8px 8px 0;
+      margin: 24px 0;
+      color: var(--success-text);
+    }
+
+    .callout-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       TABLES
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
+      font-size: 12px;
+    }
+
+    th {
+      background: var(--primary);
+      color: var(--text-light);
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-light);
+      font-weight: 300;
+      color: var(--text-secondary);
+    }
+
+    tr:nth-child(even) {
+      background: var(--bg-tint);
+    }
+
+    th:first-child {
+      border-radius: 6px 0 0 0;
+    }
+
+    th:last-child {
+      border-radius: 0 6px 0 0;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       COMPARE GRID (Side-by-Side)
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 24px 0;
+    }
+
+    .compare-card {
+      background: var(--bg-tint);
+      border-radius: 8px;
+      padding: 24px;
+      border: 1px solid var(--border-light);
+    }
+
+    .compare-card.recommended {
+      border: 2px solid var(--primary-mid);
+      background: var(--bg-light);
+    }
+
+    .compare-badge {
+      display: inline-block;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 600;
+      background: var(--primary);
+      color: var(--text-light);
+      padding: 3px 10px;
+      border-radius: 3px;
+      margin-bottom: 12px;
+    }
+
+    .compare-card h3 {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 10px;
+      color: var(--primary);
+    }
+
+    .compare-card p {
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    .compare-note {
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-top: 12px;
+    }
+
+    .compare-note.warn {
+      background: var(--warn-bg);
+      color: var(--warn-text);
+    }
+
+    .compare-note.good {
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       FLOW DIAGRAM
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 24px 0;
+      padding: 20px;
+      background: var(--bg-tint);
+      border-radius: 8px;
+    }
+
+    .flow-chip {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .flow-chip.primary {
+      background: var(--primary);
+      color: var(--text-light);
+    }
+
+    .flow-chip.mid {
+      background: var(--primary-mid);
+      color: var(--text-light);
+    }
+
+    .flow-chip.light {
+      background: var(--border-light);
+      color: var(--primary);
+    }
+
+    .flow-chip.highlight {
+      background: var(--green-status);
+      color: white;
+    }
+
+    .flow-arrow {
+      color: var(--primary-mid);
+      font-size: 16px;
+      font-weight: 300;
+    }
+
+    .flow-caption {
+      width: 100%;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 8px;
+      font-weight: 300;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       ICON CARDS (3-Column)
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin: 24px 0;
+    }
+
+    .icon-card {
+      background: var(--bg-tint);
+      border-radius: 8px;
+      padding: 24px;
+      border-top: 3px solid var(--primary-mid);
+      border: 1px solid var(--border-light);
+      border-top: 3px solid var(--primary-mid);
+    }
+
+    .icon-card-title {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+
+    .icon-card p {
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       DEFENSE GRID (Numbered Cards)
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .defense-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .defense-card {
+      background: var(--bg-tint);
+      border-radius: 8px;
+      padding: 20px;
+      border-top: 3px solid var(--primary-mid);
+      border: 1px solid var(--border-light);
+      border-top: 3px solid var(--primary-mid);
+    }
+
+    .defense-num {
+      font-size: 22px;
+      font-weight: 300;
+      color: var(--primary-mid);
+      margin-bottom: 8px;
+    }
+
+    .defense-card h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--primary);
+    }
+
+    .defense-card p {
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       CADENCE GRID
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .cadence-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .cadence-card {
+      background: var(--bg-light);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .cadence-card.daily {
+      border-top: 3px solid var(--primary);
+    }
+
+    .cadence-card.weekly {
+      border-top: 3px solid var(--primary-mid);
+    }
+
+    .cadence-card.monthly {
+      border-top: 3px solid var(--green-status);
+    }
+
+    .cadence-freq {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--primary-mid);
+    }
+
+    .cadence-card h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--primary);
+    }
+
+    .cadence-card p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       ESCALATION GRID (Risk Levels)
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .escalation-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .escalation-card {
+      background: var(--bg-light);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .escalation-card.low {
+      border-left: 4px solid var(--green-status);
+    }
+
+    .escalation-card.medium {
+      border-left: 4px solid var(--amber);
+    }
+
+    .escalation-card.high {
+      border-left: 4px solid var(--red);
+    }
+
+    .escalation-card h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--primary);
+    }
+
+    .escalation-card p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       MATURITY BAR / PROGRESSION
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .maturity-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin: 24px 0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .maturity-level {
+      padding: 14px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: white;
+    }
+
+    .maturity-level.level-1 {
+      background: var(--critical-bg);
+      color: var(--critical-text);
+    }
+
+    .maturity-level.level-2 {
+      background: var(--warn-bg);
+      color: var(--warn-text);
+    }
+
+    .maturity-level.level-3 {
+      background: var(--bg-tint);
+      color: var(--primary);
+    }
+
+    .maturity-level.level-4 {
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+
+    .maturity-level.active {
+      font-weight: 700;
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       FOOTER
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .footer {
+      padding: 40px 60px;
+      background: var(--primary);
+      color: var(--text-light);
+      text-align: center;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 500;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────────────
+       UTILITY
+       ──────────────────────────────────────────────────────────────────────────────── */
+
+    .spacing-lg {
+      margin: 40px 0;
+    }
+
+    .spacing-xl {
+      margin: 60px 0;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .text-small {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .br {
+      border-radius: 8px;
+    }
+
+    /* 2-column grid for cadence table content */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 24px 0;
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="document">
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       COVER PAGE
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <div class="cover">
+    <div class="cover-tag">Internal Sales Operations</div>
+    <h1 class="cover-title">Outbound Playbook</h1>
+    <div class="cover-bar"></div>
+    <p class="cover-sub">Data-Driven Cadences, Channels & Messaging for Fund Admin SaaS BDRs</p>
+    <div class="cover-meta">March 2026 • Confidential</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       TABLE OF CONTENTS
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul class="toc-list">
+      <li class="toc-item"><strong>Section 01</strong> — The Reality Check: Benchmarks That Actually Matter</li>
+      <li class="toc-item"><strong>Section 02</strong> — The Math: What It Takes to Hit 6-12 Meetings/Month</li>
+      <li class="toc-item"><strong>Section 03</strong> — The 21-Day Multi-Channel Cadence</li>
+      <li class="toc-item"><strong>Section 04</strong> — Messaging That Works (And Why "Lead With Insight" Is Dead)</li>
+      <li class="toc-item"><strong>Section 05</strong> — Channel Deep-Dive: SMS, iMessage, and What's Legal</li>
+      <li class="toc-item"><strong>Section 06</strong> — Making It Work With Young, Hungry BDRs</li>
+    </ul>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       SECTION 01: THE REALITY CHECK — BENCHMARKS THAT ACTUALLY MATTER
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <section>
+    <div class="section-label">01</div>
+    <h1 class="section-title">The Reality Check</h1>
+    <p class="section-lead">Benchmarks That Actually Matter — What the 2025 Data Says About Cold Outreach</p>
+
+    <p>Most BDR teams are operating on outdated benchmarks. Cold calling isn't dead, but the 10%+ conversion rates your reps remember from 2019 are gone. Email reply rates are down. LinkedIn is up, but only if you're doing it right. Here are the real numbers from 2025, not the fantasy deck numbers.</p>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Core Metrics by Channel</h3>
+
+    <div class="kpi-row">
+      <div class="kpi-box">
+        <div class="kpi-val">2.3%</div>
+        <div class="kpi-label">Cold Call Conversion (Down from 4.8% in 2024)</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val">3–5%</div>
+        <div class="kpi-label">Cold Email Reply Rate (B2B SaaS Avg)</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val">10.3%</div>
+        <div class="kpi-label">LinkedIn DM Reply Rate (2x vs Email)</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val">8–12</div>
+        <div class="kpi-label">Touches to Book 1 Meeting</div>
+      </div>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Channel Benchmarks — The Full Picture</h3>
+
+    <table>
+      <tr>
+        <th>Channel</th>
+        <th>Metric</th>
+        <th>Average</th>
+        <th>Good</th>
+        <th>Elite</th>
+      </tr>
+      <tr>
+        <td><strong>Cold Call</strong></td>
+        <td>Dials → Meeting</td>
+        <td>2.3%</td>
+        <td>5–8%</td>
+        <td>10%+</td>
+      </tr>
+      <tr>
+        <td><strong>Cold Call</strong></td>
+        <td>Connect Rate</td>
+        <td>3–10%</td>
+        <td>15–20%</td>
+        <td>30%+</td>
+      </tr>
+      <tr>
+        <td><strong>Cold Email</strong></td>
+        <td>Reply Rate</td>
+        <td>3–5%</td>
+        <td>8–10%</td>
+        <td>15%+</td>
+      </tr>
+      <tr>
+        <td><strong>Cold Email</strong></td>
+        <td>Sends → Meeting</td>
+        <td>~1%</td>
+        <td>2–3%</td>
+        <td>5%+</td>
+      </tr>
+      <tr>
+        <td><strong>LinkedIn DM</strong></td>
+        <td>Reply Rate</td>
+        <td>10.3%</td>
+        <td>15–20%</td>
+        <td>25%+</td>
+      </tr>
+      <tr>
+        <td><strong>LinkedIn InMail</strong></td>
+        <td>Reply Rate</td>
+        <td>3–8%</td>
+        <td>10–15%</td>
+        <td>25%+</td>
+      </tr>
+      <tr>
+        <td><strong>Multi-Channel</strong></td>
+        <td>Touches → Meeting</td>
+        <td>1–2% per touch</td>
+        <td>3–5%</td>
+        <td>7%+</td>
+      </tr>
+    </table>
+
+    <div class="callout-dark">
+      <div class="callout-label">KEY INSIGHT</div>
+      <p><strong>Multi-channel sequences convert at 4–7% — roughly 2–3x higher than any single channel alone.</strong> Your BDRs should never be single-channel. A rep sending 30 cold emails per day and making zero calls is leaving 60% of potential meetings on the table.</p>
+    </div>
+
+    <p>The math is clear: <strong>LinkedIn DMs outperform cold email by more than 2x</strong>. Cold calls are harder but still critical for breaking through noise. Email is the persistence channel — it doesn't convert at high rates, but it seeds familiarity. Combined? That's where the magic happens.</p>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       SECTION 02: THE MATH — WHAT IT TAKES TO HIT 6-12 MEETINGS/MONTH
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <section>
+    <div class="section-label">02</div>
+    <h1 class="section-title">The Math</h1>
+    <p class="section-lead">What It Takes to Hit 6–12 Meetings Per Month — The Realistic Funnel</p>
+
+    <p>Before your BDRs start the 21-day cadence, they need to understand the funnel math. A "6 meetings/month" goal isn't pulled from thin air — it's the natural output of consistent, multi-channel execution. Here's how the math actually works.</p>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Realistic Floor vs. Stretch Target</h3>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h3>6 Meetings/Month<br>(Realistic Floor)</h3>
+        <p style="margin: 14px 0;">
+          This is achievable for any rep doing consistent, quality work.
+        </p>
+        <ul style="margin: 14px 0; padding-left: 18px; font-size: 12px; color: var(--text-secondary);">
+          <li style="margin-bottom: 6px;">50 targeted accounts/month</li>
+          <li style="margin-bottom: 6px;">12% account-to-meeting conversion</li>
+          <li style="margin-bottom: 6px;">~400 total touchpoints (8 per account)</li>
+          <li>Daily: 15–20 emails, 25–30 dials, 10–15 LinkedIn touches</li>
+        </ul>
+      </div>
+      <div class="compare-card recommended">
+        <span class="compare-badge">Recommended</span>
+        <h3>12 Meetings/Month<br>(Stretch Target)</h3>
+        <p style="margin: 14px 0;">
+          Requires more accounts or better targeting. Aim for this once 6 is proven.
+        </p>
+        <ul style="margin: 14px 0; padding-left: 18px; font-size: 12px; color: var(--text-secondary);">
+          <li style="margin-bottom: 6px;">80–100 targeted accounts/month</li>
+          <li style="margin-bottom: 6px;">12–15% conversion rate</li>
+          <li style="margin-bottom: 6px;">~700 total touchpoints</li>
+          <li>Daily: 25–30 emails, 40–50 dials, 15–20 LinkedIn touches</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout-warn">
+      <div class="callout-label">REALITY CHECK</div>
+      <p>Most BDR teams <strong>overcount activity and undercount quality.</strong> 50 dials where 40 go to voicemail ≠ 50 dials. Track <strong>CONNECTS</strong> not dials. Track <strong>REPLIES</strong> not sends. If your team reports 200 dials/week but only 5 connects, your dialing metrics are fiction.</p>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">The Daily Grind</h3>
+
+    <p><strong>To hit 6 meetings/month consistently:</strong></p>
+    <ul style="margin: 14px 0 24px 0; padding-left: 20px; font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
+      <li>15–20 personalized cold emails (not templates, not mass-sends)</li>
+      <li>25–30 dials with a <strong>target of 5–8 actual connects</strong> (not dials)</li>
+      <li>10–15 LinkedIn touches (DMs, comments, connection requests)</li>
+      <li>30–45 minutes of account research before first touch</li>
+      <li>10–15 minutes of CRM logging and next-day prep at end of day</li>
+    </ul>
+
+    <p>That's roughly 3–4 hours of focused outbound work per day. Not 8 hours. The remaining time is research, CRM maintenance, coaching, and follow-ups.</p>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       SECTION 03: THE 21-DAY MULTI-CHANNEL CADENCE
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <section>
+    <div class="section-label">03</div>
+    <h1 class="section-title">The 21-Day Multi-Channel Cadence</h1>
+    <p class="section-lead">The Core Playbook — Day-by-Day Sequence That Drives Meetings</p>
+
+    <p>This is the template every BDR should follow for every account. It's not fancy. It's not optimized for each specific prospect. It's designed to work at scale while maintaining personalization where it matters.</p>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">The Full 21-Day Sequence</h3>
+
+    <table>
+      <tr>
+        <th style="width: 8%;">Day</th>
+        <th style="width: 12%;">Channel</th>
+        <th style="width: 80%;">Action & Details</th>
+      </tr>
+      <tr>
+        <td><strong>1</strong></td>
+        <td>LinkedIn</td>
+        <td><strong>Connection Request (Personalized Note)</strong> — "I work with [Peer Fund] on their waterfall reconciliation. Saw your background in [specific area] and thought we should connect." + 30–60 min deep research on account.</td>
+      </tr>
+      <tr>
+        <td><strong>2</strong></td>
+        <td>Cold Call</td>
+        <td><strong>Call #1 (Morning, 9–10am)</strong> — Aim to speak live. If voicemail: "Hi [Name], this is [Rep] from Maybern. I'm calling because we work with funds similar to yours on admin reconciliation. Not trying to sell—just quick question. I'll follow up by email. [Phone]"</td>
+      </tr>
+      <tr>
+        <td><strong>3</strong></td>
+        <td>Email</td>
+        <td><strong>Email #1: "The Pattern Interrupt"</strong> — See Messaging section for full copy. Opens with curiosity. Names a peer. Plants a fear. Asks a real question.</td>
+      </tr>
+      <tr>
+        <td><strong>5</strong></td>
+        <td>LinkedIn</td>
+        <td><strong>Engagement</strong> — Comment thoughtfully on their recent post OR share something relevant to fund admin. Don't pitch. Just engage.</td>
+      </tr>
+      <tr>
+        <td><strong>7</strong></td>
+        <td>Cold Call + Email</td>
+        <td><strong>Call #2 (Afternoon, 3–4pm)</strong> — Different time of day. If no answer, voicemail with a reference: "Quick follow-up on the waterfall question from the email earlier this week." + <strong>Email #2: "The Peer Proof"</strong> — Names 2–3 real conversations. Specific scary numbers. Offers a clean way out.</td>
+      </tr>
+      <tr>
+        <td><strong>9</strong></td>
+        <td>LinkedIn DM</td>
+        <td><strong>Direct Message (Casual)</strong> — "Hey [Name], saw your post on [topic]. Quick question: does your team reconcile waterfall calculations or do you trust the admin output as-is? No agenda—just curious."</td>
+      </tr>
+      <tr>
+        <td><strong>11</strong></td>
+        <td>Cold Call</td>
+        <td><strong>Call #3 (Morning)</strong> — If still no connect, voicemail should reference specific research: "I saw your fund focuses on [X]—that's exactly the segment we work with on waterfall errors. Worth 20 minutes?"</td>
+      </tr>
+      <tr>
+        <td><strong>14</strong></td>
+        <td>Email</td>
+        <td><strong>Email #3: "The Breakup Tease"</strong> — Creates urgency without being pushy: "I'm planning to stop reaching out after this—last touch before I assume you're not interested. But before I do, one more thing..."</td>
+      </tr>
+      <tr>
+        <td><strong>17</strong></td>
+        <td>Cold Call</td>
+        <td><strong>Call #4 (Different time)</strong> — Last call. Different voicemail approach: "One final call—I respect you may not have time. If you're curious about [specific value], I'm here. If not, no hard feelings."</td>
+      </tr>
+      <tr>
+        <td><strong>19</strong></td>
+        <td>LinkedIn</td>
+        <td><strong>Video or Voice DM</strong> — 15–20 second loom video or voice message: "Hey [Name], I've been reaching out about waterfall reconciliation. Still curious if this is relevant. If not, let me know and I'll stop bugging you."</td>
+      </tr>
+      <tr>
+        <td><strong>21</strong></td>
+        <td>Email</td>
+        <td><strong>Email #4: "The Clean Break"</strong> — Genuine final touch. Creates closure: "I'm going to stop here. If something changes or you want to talk, here's my email. Thanks for your time."</td>
+      </tr>
+    </table>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Channel Mix Visualization</h3>
+
+    <div class="flow">
+      <span class="flow-chip primary">Day 1: LinkedIn Connect</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-chip mid">Days 2–3: Call + Email</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-chip light">Days 5–7: Engage + Call + Email</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-chip highlight">Days 9–21: DM + Call + Email Loop</span>
+      <div class="flow-caption">Familiarity Builds → Meeting Happens</div>
+    </div>
+
+    <div class="callout-success">
+      <div class="callout-label">WHY THIS WORKS</div>
+      <p><strong>By Day 7, you've appeared in 3 different places.</strong> The prospect doesn't know your name yet but recognizes your pattern. By Day 14, you're familiar. <strong>Familiarity breeds meetings.</strong> You're not selling—you're becoming part of their normal information flow.</p>
+    </div>
+
+    <p>This cadence assumes zero replies. If someone replies positively before Day 21, move to demo prep. If they ask you to stop, stop. If they say "maybe later," set a nurture track for 30/60/90 days.</p>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       SECTION 04: MESSAGING THAT WORKS
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <section>
+    <div class="section-label">04</div>
+    <h1 class="section-title">Messaging That Works</h1>
+    <p class="section-lead">Why "Lead With Insight" Is Dead & What Actually Books Meetings</p>
+
+    <div class="callout-dark">
+      <div class="callout-label">THE INSIGHT PROBLEM</div>
+      <p>The "lead with insight" approach is now table stakes. Every rep opens with "I noticed your company just...". When everyone does it, it stops being insightful and starts being noise.</p>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">What Everyone Does vs. What Actually Works</h3>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h3>NOT Recommended</h3>
+        <ul style="margin: 12px 0; padding-left: 16px; font-size: 12px; color: var(--text-secondary);">
+          <li style="margin-bottom: 8px;">"I noticed [trigger] and thought..."</li>
+          <li style="margin-bottom: 8px;">"Companies like yours typically struggle with..."</li>
+          <li style="margin-bottom: 8px;">"I'd love to get 15 minutes on your calendar..."</li>
+          <li>Generic value props and feature dumps</li>
+        </ul>
+      </div>
+      <div class="compare-card recommended">
+        <span class="compare-badge">Recommended</span>
+        <h3>What Converts</h3>
+        <ul style="margin: 12px 0; padding-left: 16px; font-size: 12px; color: var(--text-secondary);">
+          <li style="margin-bottom: 8px;">Pattern interrupts that create curiosity gaps</li>
+          <li style="margin-bottom: 8px;">Peer proof with specific names (73% higher)</li>
+          <li style="margin-bottom: 8px;">Questions that expose hidden risk</li>
+          <li>Short (under 75 words), conversational, no pitching</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Four Core Message Templates</h3>
+
+    <div class="defense-grid">
+      <div class="defense-card">
+        <div class="defense-num">01</div>
+        <h4>The Pattern Interrupt (Email #1)</h4>
+        <div class="text-small" style="margin: 8px 0 12px 0; color: var(--primary-mid);">Subject: "[Fund Name] waterfall question"</div>
+        <p>"Hi [Name],</p>
+        <p>Quick question — when your team reconciles waterfall calculations across [X] vehicles, how long does that actually take?</p>
+        <p>I ask because [Peer Fund Name]'s controller told us it was 25+ hours per fund per quarter before they realized the Excel model had been carrying errors for 3 quarters.</p>
+        <p>Not trying to sell you anything — genuinely curious if this resonates or if your team has it dialed.</p>
+        <p>[Name]"</p>
+        <p style="margin-top: 12px; font-size: 11px; font-weight: 500; color: var(--primary-mid);"><strong>WHY:</strong> Names a specific peer. Mentions a scary number. Asks a real question. No CTA.</p>
+      </div>
+      <div class="defense-card">
+        <div class="defense-num">02</div>
+        <h4>The Peer Proof (Email #2)</h4>
+        <div class="text-small" style="margin: 8px 0 12px 0; color: var(--primary-mid);">Subject: "Re: [Fund Name] waterfall question"</div>
+        <p>"Closing the loop — talked to two controllers this week.</p>
+        <p>Both said the same thing: 'We didn't know we had errors until we had a second system checking.'</p>
+        <p>One found 12 discrepancies in a single quarter. The other caught a side letter override that had been missed for 18 months.</p>
+        <p>If your team runs any kind of shadow or parallel check, would it make sense to compare notes for 20 min?</p>
+        <p>If not, no worries — I'll stop bugging you.</p>
+        <p>[Name]"</p>
+        <p style="margin-top: 12px; font-size: 11px; font-weight: 500; color: var(--primary-mid);"><strong>WHY:</strong> Social proof. Scary details. Gives easy out.</p>
+      </div>
+      <div class="defense-card">
+        <div class="defense-num">03</div>
+        <h4>The Risk Question (Cold Call Script)</h4>
+        <div class="text-small" style="margin: 8px 0 12px 0; color: var(--primary-mid);">Opening for Call #2-3</div>
+        <p>"Hi [Name], this is [Rep] from Maybern. I'll be brief.</p>
+        <p>I'm calling because we work with [Peer Fund]'s finance team and something came up that might be relevant to you.</p>
+        <p>[Pause]</p>
+        <p>When your team reconciles waterfall calculations against what your admin produces, how confident are you that both numbers match?</p>
+        <p>[Let them talk]</p>
+        <p>The reason I ask is that most teams we talk to find discrepancies they didn't know existed. We just helped [Fund] catch [specific error type].</p>
+        <p>Worth 20 minutes to compare notes?"</p>
+        <p style="margin-top: 12px; font-size: 11px; font-weight: 500; color: var(--primary-mid);"><strong>WHY:</strong> Peer name. Question that plants doubt. Pause lets silence work for you.</p>
+      </div>
+      <div class="defense-card">
+        <div class="defense-num">04</div>
+        <h4>The LinkedIn DM (Day 9)</h4>
+        <div class="text-small" style="margin: 8px 0 12px 0; color: var(--primary-mid);">Casual, Conversational</div>
+        <p>"Hey [Name] — saw you're at [Fund]. Quick q: does your team reconcile waterfall calcs against your admin or do you trust the admin output as-is?</p>
+        <p>No agenda, just curious — it's the #1 topic coming up in conversations with PE controllers right now."</p>
+        <p style="margin-top: 12px; font-size: 11px; font-weight: 500; color: var(--primary-mid);"><strong>WHY:</strong> Casual tone. Genuine curiosity. FOMO ("it's the #1 topic").</p>
+      </div>
+    </div>
+
+    <div class="callout-light">
+      <div class="callout-label">MESSAGING GUARDRAILS</div>
+      <ul style="margin: 0; padding-left: 18px; font-size: 12px;">
+        <li style="margin-bottom: 8px;"><strong>Never start with a compliment.</strong> "Love what you're doing at [Fund]" = fake. Canned.</li>
+        <li style="margin-bottom: 8px;"><strong>Avoid CTAs in Email #1-2.</strong> They'll ask for a meeting if the message is good.</li>
+        <li style="margin-bottom: 8px;"><strong>Name real peers.</strong> "[Peer Fund Name]" is 10x more credible than "similar fund."</li>
+        <li style="margin-bottom: 8px;"><strong>Keep it under 75 words.</strong> If they're not hooked by 75 words, 150 won't help.</li>
+        <li><strong>Use questions, not statements.</strong> "Does your team reconcile..." is more engaging than "Most teams reconcile..."</li>
+      </ul>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       SECTION 05: CHANNEL DEEP-DIVE — SMS, iMESSAGE, AND WHAT'S LEGAL
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <section>
+    <div class="section-label">05</div>
+    <h1 class="section-title">Channel Deep-Dive</h1>
+    <p class="section-lead">SMS, iMessage, and What's Actually Legal (And Worth the Risk)</p>
+
+    <p>Your BDRs will ask: "Can we text them?" The answer is complicated and the legal risk is real. Here's the breakdown by channel and risk level.</p>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Risk Tiers by Channel</h3>
+
+    <div class="escalation-grid">
+      <div class="escalation-card low">
+        <h4>LinkedIn + Email + Phone</h4>
+        <p><strong>Risk Level: Low</strong></p>
+        <p style="margin-top: 10px;">These three channels are your core. No compliance risk. Full sequence capability. This should be 95% of outbound activity.</p>
+        <p style="margin-top: 8px; font-size: 11px; color: var(--green-status); font-weight: 500;">✓ Zero legal exposure</p>
+      </div>
+      <div class="escalation-card medium">
+        <h4>SMS/Text (Business Number)</h4>
+        <p><strong>Risk Level: Medium-High</strong></p>
+        <p style="margin-top: 10px;">TCPA requires express written consent for marketing texts. For B2B, slightly more permissive with existing business relationships.</p>
+        <p style="margin-top: 8px; font-weight: 500; color: var(--warn-text);">Use ONLY for:</p>
+        <ul style="margin: 6px 0 0 18px; font-size: 11px; color: var(--text-secondary);">
+          <li>Follow-ups after meeting is set</li>
+          <li>Re-engaging warm prospects (gone dark 30+ days)</li>
+          <li>Event reminders</li>
+        </ul>
+        <p style="margin-top: 8px; font-size: 11px; color: var(--red);">Never for cold outreach. Fines: $500–$1,500 PER TEXT.</p>
+      </div>
+      <div class="escalation-card high">
+        <h4>iMessage / Personal Text</h4>
+        <p><strong>Risk Level: Critical</strong></p>
+        <p style="margin-top: 10px;">DO NOT cold-text personal numbers. TCPA applies. Class action risk is real. Even if you get a reply, you're training your BDRs to do something that doesn't scale and carries legal exposure.</p>
+        <p style="margin-top: 8px; font-size: 11px; color: var(--red); font-weight: 500;">The ROI doesn't justify the risk for enterprise B2B.</p>
+      </div>
+    </div>
+
+    <div class="callout-warn">
+      <div class="callout-label">BOTTOM LINE</div>
+      <p><strong>Skip SMS/iMessage for cold outbound.</strong> It's a compliance minefield and the returns don't justify the risk for enterprise SaaS. If your emails aren't landing, fix <strong>deliverability</strong> — don't switch to text.</p>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">The Three Core Channels (Ranked)</h3>
+
+    <p><strong>1. Email (Persistence Channel)</strong><br>
+    Lowest reply rate (3–5%) but critical for familiarity. Use for your full 21-day sequence. Track: opens, clicks, replies. Most underutilized by inexperienced BDRs.</p>
+
+    <p><strong>2. LinkedIn (The Converter)</strong><br>
+    Highest DM reply rate (10.3%). Use for connection requests, DMs, and engagement. Creates familiarity without being intrusive. Track: connections accepted, DM replies, profile views.</p>
+
+    <p><strong>3. Cold Call (The Breakthrough Channel)</strong><br>
+    Lowest conversion (2.3%) but highest impact. One good 5-minute call with the right person beats 10 emails. Use for breaking through when other channels stall. Track: connects (not dials), voicemail-to-follow-up ratio.</p>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       SECTION 06: MAKING IT WORK WITH YOUNG, HUNGRY BDRs
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <section>
+    <div class="section-label">06</div>
+    <h1 class="section-title">Making It Work With Young, Hungry BDRs</h1>
+    <p class="section-lead">The Tactics, Rhythm, and Coaching Framework That Gets Results</p>
+
+    <p>Young BDRs are eager but unpolished. They'll overwork and underperform unless you set clear non-negotiables and coach them daily. Here's the framework that works.</p>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Daily Non-Negotiables</h3>
+
+    <div class="three-col">
+      <div class="icon-card">
+        <div class="icon-card-title">Account Research</div>
+        <p>30 minutes minimum per rep, per day. Not scrolling. Not generic company research. Specific fund size, recent news, admin relationship. The better the research, the higher the quality of personalization.</p>
+      </div>
+      <div class="icon-card">
+        <div class="icon-card-title">Activity Discipline</div>
+        <p>25–30 dials (track CONNECTS not attempts), 15–20 personalized emails, 10–15 LinkedIn touches. This takes 3–4 hours. Non-negotiable. If they're not hitting these daily, they're not executing.</p>
+      </div>
+      <div class="icon-card">
+        <div class="icon-card-title">CRM Logging</div>
+        <p>Every touch logged. Every voicemail noted. Every reply tracked. 15–20 minutes end of day. Bad CRM hygiene kills visibility. You can't coach what you can't see.</p>
+      </div>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Weekly Rhythm</h3>
+
+    <div class="cadence-grid">
+      <div class="cadence-card daily">
+        <div class="cadence-freq">Monday</div>
+        <h4>Build/Refresh Target List</h4>
+        <p>50–80 accounts for the week. Qualification is the lever. Bad accounts = bad week.</p>
+      </div>
+      <div class="cadence-card weekly">
+        <div class="cadence-freq">Tue–Thu</div>
+        <h4>Full Cadence Execution</h4>
+        <p>Run the playbook. Mix calls, emails, LinkedIn. Track connects and replies obsessively.</p>
+      </div>
+      <div class="cadence-card monthly">
+        <div class="cadence-freq">Friday</div>
+        <h4>Execution + Review</h4>
+        <p><strong>AM:</strong> Final outbound pushes. <strong>PM:</strong> Review metrics. Adjust messaging if needed.</p>
+      </div>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Weekly 1:1 Coaching Focus</h3>
+
+    <p>Skip activity metrics. Track outcomes.</p>
+
+    <ul style="margin: 14px 0 24px 0; padding-left: 20px; font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
+      <li><strong>Connect Rate:</strong> Dials → Live conversations. Aim for 5–10%. This is phone skill.</li>
+      <li><strong>Reply Rate:</strong> Sends → Responses. Aim for 8–15%. This is messaging skill.</li>
+      <li><strong>Meetings Set:</strong> Total activity → Booked demos. This is the goal.</li>
+      <li><strong>Pipeline Created:</strong> Meetings → Opps. This is the strategic number.</li>
+    </ul>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Coaching Focus Areas</h3>
+
+    <div class="three-col">
+      <div class="icon-card">
+        <div class="icon-card-title">Tone</div>
+        <p>Conversational, not corporate. They text friends all day with personality. Bring that energy to outreach. "Hey, quick question" > "I'd like to introduce"</p>
+      </div>
+      <div class="icon-card">
+        <div class="icon-card-title">Phone Confidence</div>
+        <p>Role-play the first 15 seconds every morning. The opener makes or breaks the call. If they fumble the intro, the call is lost.</p>
+      </div>
+      <div class="icon-card">
+        <div class="icon-card-title">Rejection Resilience</div>
+        <p>97% of touches won't convert. That's normal. Celebrate the 3%. If a rep is crushed by "no," they won't make it past month 2.</p>
+      </div>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 500; margin: 30px 0 20px 0; color: var(--primary);">Maturity Progression</h3>
+
+    <p>This is where most teams go wrong. They stay stuck at Level 1 for 6 months. Push reps through each level.</p>
+
+    <div class="maturity-bar">
+      <div class="maturity-level level-1">Activity-Focused</div>
+      <div class="maturity-level level-2">Quality-Focused</div>
+      <div class="maturity-level level-3">Outcome-Focused</div>
+      <div class="maturity-level level-4">Revenue-Focused</div>
+    </div>
+
+    <ul style="margin: 20px 0 0 0; padding-left: 18px; font-size: 12px; color: var(--text-secondary); line-height: 1.8;">
+      <li><strong>Level 1 (Current?):</strong> "I made 50 dials and sent 20 emails." → Metrics: volume only.</li>
+      <li><strong>Level 2:</strong> "I got 8 connects and 3 replies." → Metrics: quality.</li>
+      <li><strong>Level 3:</strong> "I booked 2 meetings." → Metrics: conversion.</li>
+      <li><strong>Level 4 (Target):</strong> "I'm tracking to hit 12 meetings this month and 3 of them are looking like solid opps." → Metrics: revenue impact.</li>
+    </ul>
+
+    <div class="callout-success">
+      <div class="callout-label">THE 6-MEETING GOAL IS ACHIEVABLE</div>
+      <p>If your BDRs work 50 accounts/month through a full 21-day multi-channel cadence, 6 meetings is a 12% account-to-meeting rate. That's achievable for any rep who does the work. 12 meetings requires either more accounts or better targeting. Start with 6 and optimize from there.</p>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════════
+       FOOTER
+       ══════════════════════════════════════════════════════════════════════════════ -->
+
+  <div class="footer">
+    Confidential — Maybern Sales Operations · March 2026
+  </div>
+
+</div>
+
+</body>
+</html>

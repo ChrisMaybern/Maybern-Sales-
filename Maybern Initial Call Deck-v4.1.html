@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Maybern — Owning the Calculation Layer</title>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -28,6 +28,30 @@
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
+
+const BASE_W = 1440;
+const BASE_H = 900;
+
+function useWindowSize() {
+  const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const h = () => setSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return { ...size, isMobile: size.w < 768 };
+}
+
+function ScaledSlide({ children, availW, availH }) {
+  const scale = Math.min(availW / BASE_W, availH / BASE_H);
+  return (
+    <div style={{ width: availW, height: availH, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', background:'#1a1a1a', flexShrink:0 }}>
+      <div style={{ width: BASE_W, height: BASE_H, transform:`scale(${scale})`, transformOrigin:'center center', flexShrink:0 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 const C = {
   deepGreen: "#091D13",
@@ -1018,10 +1042,13 @@ const slideLabels = ["01 · Title", "02 · Agenda", "03 · Status Quo", "04 · W
 const totalSlides = slideComponents.length;
 
 function AudienceView({ slideIndex, slideKey }) {
+  const { w, h } = useWindowSize();
   const S = slideComponents[slideIndex];
   return (
-    <div style={{ width:"100vw",height:"100vh",background:"#1a1a1a",overflow:"hidden" }}>
-      <div key={slideKey} style={{ position:"absolute",inset:0 }}><S /></div>
+    <div style={{ width:"100vw", height:"100vh", background:"#1a1a1a", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <ScaledSlide availW={w} availH={h}>
+        <div key={slideKey} style={{ width:BASE_W, height:BASE_H }}><S /></div>
+      </ScaledSlide>
     </div>
   );
 }
@@ -1033,6 +1060,9 @@ function App() {
   const [presenting, setPresenting] = useState(false);
   const [audienceWin, setAudienceWin] = useState(null);
   const [isAudience] = useState(() => { try { return window.name==="maybern_audience"; } catch(e){ return false; } });
+  const { w, h, isMobile } = useWindowSize();
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
   useEffect(() => {
     if (!isAudience) return;
@@ -1078,10 +1108,59 @@ function App() {
   const S = slideComponents[current];
   const NextS = current+1 < totalSlides ? slideComponents[current+1] : null;
 
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+      if (dx < 0 && current < totalSlides - 1) goTo(current + 1);
+      if (dx > 0 && current > 0) goTo(current - 1);
+    }
+    touchStartX.current = null;
+  };
+
+  // ── MOBILE LAYOUT ──────────────────────────────────────────────
+  if (isMobile) {
+    const mobileSlideH = h - 56;
+    return (
+      <div style={{ width:"100vw", height:"100vh", background:"#0f1a14", overflow:"hidden", display:"flex", flexDirection:"column", fontFamily:"'DM Sans',sans-serif" }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <ScaledSlide availW={w} availH={mobileSlideH}>
+          <div key={slideKey} style={{ width:BASE_W, height:BASE_H }}><S /></div>
+        </ScaledSlide>
+
+        <div style={{ height:56, background:"rgba(9,29,19,0.97)", borderTop:"1px solid rgba(61,170,122,0.2)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 20px", flexShrink:0 }}>
+          <button onClick={() => current>0&&goTo(current-1)} disabled={current===0}
+            style={{ background:"none", border:"none", color:current===0?"rgba(61,170,122,0.2)":C.accentTeal, fontSize:22, cursor:current===0?"default":"pointer", padding:"4px 8px", lineHeight:1 }}>‹</button>
+          <div style={{ display:"flex", gap:7, alignItems:"center" }}>
+            {slideComponents.map((_,i) => (
+              <div key={i} onClick={() => goTo(i)} style={{ width:i===current?22:7, height:7, borderRadius:4, background:i===current?C.accentTeal:"rgba(61,170,122,0.25)", transition:"all 0.25s ease", cursor:"pointer" }} />
+            ))}
+          </div>
+          <button onClick={() => current<totalSlides-1&&goTo(current+1)} disabled={current===totalSlides-1}
+            style={{ background:"none", border:"none", color:current===totalSlides-1?"rgba(61,170,122,0.2)":C.accentTeal, fontSize:22, cursor:current===totalSlides-1?"default":"pointer", padding:"4px 8px", lineHeight:1 }}>›</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── DESKTOP LAYOUT ─────────────────────────────────────────────
+  const presenterBarH = presenting ? 36 : 0;
+  const navBarH = 50;
+  const notesW = showNotes||presenting ? (presenting ? 360 : 300) : 0;
+  const slideAvailW = w - notesW;
+  const slideAvailH = h - presenterBarH - navBarH;
+
   return (
     <div style={{ width:"100%",height:"100vh",display:"flex",flexDirection:"column",background:"#1a1a1a",fontFamily:"'DM Sans',sans-serif" }}>
       {presenting && (
-        <div style={{ background:C.deepGreen,borderBottom:`2px solid ${C.accentTeal}`,padding:"6px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+        <div style={{ background:C.deepGreen,borderBottom:`2px solid ${C.accentTeal}`,padding:"6px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,height:36 }}>
           <div style={{ display:"flex",alignItems:"center",gap:12 }}>
             <div style={{ display:"flex",alignItems:"center",gap:6 }}>
               <div style={{ width:7,height:7,borderRadius:"50%",background:"#ff3b30",boxShadow:"0 0 6px #ff3b30" }} />
@@ -1094,12 +1173,14 @@ function App() {
       )}
 
       <div style={{ flex:1,display:"flex",overflow:"hidden" }}>
-        <div style={{ flex:1,position:"relative" }}>
-          <div key={slideKey} style={{ position:"absolute",inset:0,overflow:"hidden" }}><S /></div>
+        <div style={{ flex:1,position:"relative", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <ScaledSlide availW={slideAvailW} availH={slideAvailH}>
+            <div key={slideKey} style={{ width:BASE_W, height:BASE_H }}><S /></div>
+          </ScaledSlide>
         </div>
 
         {(showNotes||presenting) && (
-          <div style={{ width:presenting?360:300,background:"#111",borderLeft:"1px solid #2a2a2a",display:"flex",flexDirection:"column",overflow:"hidden" }}>
+          <div style={{ width:presenting?360:300,background:"#111",borderLeft:"1px solid #2a2a2a",display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0 }}>
             {presenting && NextS && (
               <div style={{ flexShrink:0,borderBottom:"1px solid #2a2a2a" }}>
                 <div style={{ fontSize:9,color:C.accentTeal,letterSpacing:2,fontWeight:600,padding:"7px 16px 4px",background:"#0a0a0a" }}>NEXT</div>
@@ -1118,9 +1199,9 @@ function App() {
         )}
       </div>
 
-      <div style={{ background:"#111",borderTop:"1px solid #2a2a2a",padding:"9px 20px",display:"flex",alignItems:"center",gap:8,flexShrink:0 }}>
+      <div style={{ background:"#111",borderTop:"1px solid #2a2a2a",padding:"9px 20px",display:"flex",alignItems:"center",gap:8,flexShrink:0,height:navBarH }}>
         <button onClick={() => current>0&&goTo(current-1)} disabled={current===0} style={{ background:"none",border:"none",color:current===0?"#333":"#888",fontSize:18,cursor:current===0?"default":"pointer",padding:"3px 7px" }}>◀</button>
-        <div style={{ display:"flex",gap:4,flex:1,justifyContent:"center" }}>
+        <div style={{ display:"flex",gap:4,flex:1,justifyContent:"center",flexWrap:"wrap" }}>
           {slideLabels.map((label,i) => (
             <button key={i} onClick={() => goTo(i)} style={{ background:i===current?C.accentTeal:"#222",color:i===current?C.deepGreen:"#666",border:"none",borderRadius:4,padding:"5px 10px",fontSize:9,fontWeight:i===current?700:400,cursor:"pointer",transition:"all 0.18s",letterSpacing:0.5 }}>{label}</button>
           ))}

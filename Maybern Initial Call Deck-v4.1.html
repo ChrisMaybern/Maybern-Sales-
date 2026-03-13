@@ -22,6 +22,8 @@
   @keyframes fallDown  { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(120px) rotate(-10deg);opacity:0} }
   @keyframes fallTopple{ 0%{transform:translateY(0) rotate(-3deg);opacity:1} 100%{transform:translateY(130px) translateX(-22px) rotate(-50deg);opacity:0} }
   @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes shakeX { 0%,100%{transform:translateX(0)} 15%{transform:translateX(-6px)} 30%{transform:translateX(5px)} 45%{transform:translateX(-4px)} 60%{transform:translateX(3px)} 75%{transform:translateX(-2px)} }
+  @keyframes lockPulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
 </style>
 </head>
 <body>
@@ -75,6 +77,142 @@ function Fade({ children, delay = 0, style = {} }) {
     </div>
   );
 }
+
+// ═══════════════════════════════════════
+// PASSWORD GATE
+// ═══════════════════════════════════════
+function PasswordScreen({ onUnlock }) {
+  const [pw, setPw] = useState("");
+  const [error, setError] = useState(false);
+  const [shaking, setShaking] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (inputRef.current) inputRef.current.focus();
+  }, []);
+
+  const handleSubmit = () => {
+    if (pw.toLowerCase().trim() === "winning") {
+      onUnlock();
+    } else {
+      setError(true);
+      setShaking(true);
+      setTimeout(() => setShaking(false), 500);
+      setTimeout(() => setError(false), 2400);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleSubmit();
+  };
+
+  return (
+    <div style={{
+      width: "100vw", height: "100vh",
+      background: C.deepGreen,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      position: "relative", overflow: "hidden",
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      {/* Grid background */}
+      <div style={{ position:"absolute", inset:0, opacity:0.03, backgroundImage:`linear-gradient(${C.accentTeal} 1px,transparent 1px),linear-gradient(90deg,${C.accentTeal} 1px,transparent 1px)`, backgroundSize:"72px 72px", pointerEvents:"none" }} />
+
+      {/* Vignette */}
+      <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)", pointerEvents:"none" }} />
+
+      {/* Logo */}
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:56, position:"relative", zIndex:1 }}>
+        <span style={{ fontWeight:700, color:C.accentTeal, fontSize:38 }}>ıılı</span>
+        <span style={{ color:C.mint, fontSize:34, fontWeight:300, letterSpacing:6, opacity:0.85 }}>maybern</span>
+      </div>
+
+      {/* Lock icon */}
+      <div style={{ width:52, height:52, borderRadius:"50%", border:`1.5px solid ${C.accentTeal}44`, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:28, animation:"lockPulse 3s ease-in-out infinite", position:"relative", zIndex:1 }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={C.accentTeal} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
+      </div>
+
+      {/* Input area */}
+      <div style={{
+        position: "relative", zIndex: 1,
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
+        animation: shaking ? "shakeX 0.4s ease" : "none",
+      }}>
+        <div style={{ fontSize:13, color:"rgba(236,255,245,0.35)", letterSpacing:4, fontWeight:500, textTransform:"uppercase", marginBottom:4 }}>
+          Enter access code
+        </div>
+
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <input
+            ref={inputRef}
+            type="password"
+            value={pw}
+            onChange={e => setPw(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder=""
+            style={{
+              width: 220,
+              padding: "14px 20px",
+              fontSize: 16,
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 500,
+              letterSpacing: 4,
+              textAlign: "center",
+              background: "rgba(255,255,255,0.04)",
+              border: `1.5px solid ${error ? "#c0514a" : "rgba(61,170,122,0.25)"}`,
+              borderRadius: 8,
+              color: C.mint,
+              outline: "none",
+              transition: "border-color 0.3s",
+            }}
+          />
+          <button
+            onClick={handleSubmit}
+            style={{
+              padding: "14px 24px",
+              background: C.accentTeal,
+              color: C.deepGreen,
+              border: "none",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: 2,
+              cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              transition: "opacity 0.2s",
+            }}
+            onMouseEnter={e => e.target.style.opacity = "0.85"}
+            onMouseLeave={e => e.target.style.opacity = "1"}
+          >
+            ENTER
+          </button>
+        </div>
+
+        {/* Error message */}
+        <div style={{
+          height: 20,
+          fontSize: 12,
+          color: "#c0514a",
+          fontWeight: 500,
+          letterSpacing: 1,
+          opacity: error ? 1 : 0,
+          transition: "opacity 0.3s",
+        }}>
+          Invalid code
+        </div>
+      </div>
+
+      {/* Bottom text */}
+      <div style={{ position:"absolute", bottom:36, fontSize:11, color:"rgba(236,255,245,0.15)", letterSpacing:2, zIndex:1 }}>
+        CONFIDENTIAL · INTERNAL USE ONLY
+      </div>
+    </div>
+  );
+}
+
 
 // ═══════════════════════════════════════
 // SHARED — CALCULATION PANEL ANIMATION
@@ -351,7 +489,7 @@ function SlideGoals() {
 }
 
 // ═══════════════════════════════════════
-// SLIDE 2 — STATUS QUO (now SLIDE 3)
+// SLIDE 3 — STATUS QUO
 // ═══════════════════════════════════════
 function Slide2() {
   const rows = [
@@ -361,9 +499,9 @@ function Slide2() {
       badge: "TRANSACTION RECORD",
       badgeColor: "#3DAA7A",
       icon: "🏛️",
-      does: "Captures every journal entry, closes the books at quarter-end, and maintains the auditable transaction record.",
-      gapLabel: "What it wasn't built for",
-      gap: "Waterfall mechanics, LP-level economics, and carry calculations aren't GL concepts. It records what happened at the entity level — not what it means for each investor.",
+      does: "Journal entries, trial balances, quarter-end close.",
+      gap: "Entity-level record — not investor-level economics.",
+      gapLabel: "Doesn't own",
       accent: "#3DAA7A",
       highlight: false,
     },
@@ -373,9 +511,9 @@ function Slide2() {
       badge: "REPORTING FUNCTION",
       badgeColor: "#8aab9b",
       icon: "🗂️",
-      does: "Prepares financial statements, K-1s, and NAV reporting. Handles the statutory and investor-facing output of the fund.",
-      gapLabel: "Where the logic lives",
-      gap: "Admins execute what they're configured to execute. How your LPA is interpreted, how your waterfall tiers work, how carry is structured — that configuration stays with the manager.",
+      does: "Financial statements, K-1s, NAV reporting.",
+      gap: "Executes your configuration — doesn't define the logic.",
+      gapLabel: "Doesn't own",
       accent: "#8aab9b",
       highlight: false,
     },
@@ -385,9 +523,9 @@ function Slide2() {
       badge: "THE SHADOW LAYER",
       badgeColor: "#c0514a",
       icon: "📊",
-      does: "Waterfalls, carried interest, promote calcs. Management fee schedules. Distribution models and LP-level IRR.",
+      does: "Waterfalls, carry, promote calcs, fee schedules, LP-level IRR.",
+      gap: "Neither system above was built for this math — so it lives here.",
       gapLabel: "Why it exists",
-      gap: "Because neither system above was built to own this logic, it has to live somewhere. For most managers, it lives here — in files built over time by people who understand the structure.",
       accent: "#c0514a",
       highlight: true,
     },
@@ -403,81 +541,59 @@ function Slide2() {
       overflow: "hidden",
       fontFamily: "'DM Sans', sans-serif",
     }}>
-      {/* Top accent bar */}
       <div style={{ height: 3, background: `linear-gradient(90deg, #3DAA7A, transparent 55%)`, flexShrink: 0 }} />
-
-      {/* Watermark number */}
       <div style={{ position: "absolute", right: -20, bottom: -80, fontFamily: "'EB Garamond', serif", fontSize: 420, color: "rgba(13,43,30,0.04)", lineHeight: 1, userSelect: "none", pointerEvents: "none" }}>2</div>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "26px 40px 20px", position: "relative", zIndex: 1 }}>
-
-        {/* Eyebrow */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "36px 48px 24px", position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
           <span style={{ fontSize: 11, color: "#3DAA7A", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase" }}>The status quo</span>
           <div style={{ flex: 1, height: 1, background: "rgba(13,43,30,0.1)" }} />
-          <span style={{ fontSize: 11, color: "rgba(13,43,30,0.35)", letterSpacing: 1 }}>Fund Controllers · Accounting Administrators</span>
         </div>
 
-        {/* Headline */}
-        <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 46, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.15, marginBottom: 12 }}>
-          Two systems were built to handle fund operations.<br/>
+        <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 50, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.15, marginBottom: 40 }}>
+          Two systems handle fund operations.<br/>
           <em style={{ color: "#3DAA7A" }}>Neither owns the calculation layer.</em>
         </h2>
 
-        {/* Opening statement */}
-        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: "#556B62", lineHeight: 1.65, marginBottom: 14, maxWidth: 780, borderLeft: "2px solid #3DAA7A", paddingLeft: 14 }}>
-          Private fund operations were built around two systems — a general ledger that closes the books, and a fund administrator that handles reporting. Neither was designed to own the calculation layer in between. The waterfalls, the carried interest, the per-LP economics. That math has always landed wherever a team was willing to build it. That's the gap Maybern was designed to fill.
-        </p>
-
-        {/* Rows */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
           {rows.map((row, ri) => (
             <div key={ri} style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "stretch",
-              borderRadius: 10,
-              overflow: "hidden",
+              flex: 1, display: "flex", alignItems: "center", borderRadius: 12, overflow: "hidden",
               border: row.highlight ? "1.5px solid rgba(192,81,74,0.3)" : "1px solid rgba(13,43,30,0.1)",
-              background: row.highlight ? "rgba(192,81,74,0.06)" : "#fff",
+              background: row.highlight ? "rgba(192,81,74,0.05)" : "#fff",
               boxShadow: "0 1px 4px rgba(13,43,30,0.06)",
             }}>
-              {/* Left accent bar */}
-              <div style={{ width: 4, background: row.accent, flexShrink: 0, opacity: row.highlight ? 1 : 0.7 }} />
+              {/* Accent bar */}
+              <div style={{ width: 4, background: row.accent, alignSelf: "stretch", flexShrink: 0, opacity: row.highlight ? 1 : 0.6 }} />
 
-              {/* Number + icon */}
-              <div style={{ width: 70, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "12px 0", borderRight: "1px solid rgba(13,43,30,0.07)", gap: 6 }}>
-                <span style={{ fontSize: 26 }}>{row.icon}</span>
-                <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 22, color: "rgba(13,43,30,0.2)", fontWeight: 400 }}>{row.num}</span>
-              </div>
-
-              {/* Title + badge */}
-              <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center", padding: "14px 20px", borderRight: "1px solid rgba(13,43,30,0.07)", gap: 8 }}>
-                <span style={{ fontSize: 24, fontWeight: 700, color: "#0D2B1E", letterSpacing: -0.3 }}>{row.title}</span>
-                <div style={{ display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 20, background: "rgba(13,43,30,0.04)", border: `1px solid ${row.badgeColor}`, alignSelf: "flex-start" }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: row.badgeColor }}>{row.badge}</span>
+              {/* Icon + title block */}
+              <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 24px", width: 260, flexShrink: 0, borderRight: "1px solid rgba(13,43,30,0.07)" }}>
+                <span style={{ fontSize: 30 }}>{row.icon}</span>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#0D2B1E", letterSpacing: -0.3, marginBottom: 4 }}>{row.title}</div>
+                  <div style={{ display: "inline-flex", padding: "3px 9px", borderRadius: 20, background: "rgba(13,43,30,0.04)", border: `1px solid ${row.badgeColor}40` }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: row.badgeColor }}>{row.badge}</span>
+                  </div>
                 </div>
               </div>
 
               {/* What it does */}
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "14px 20px", borderRight: "1px solid rgba(13,43,30,0.07)" }}>
-                <div style={{ fontSize: 13, color: "rgba(13,43,30,0.35)", letterSpacing: 3, marginBottom: 8, textTransform: "uppercase", fontWeight: 600 }}>What it does</div>
-                <p style={{ fontSize: 21, color: "rgba(13,43,30,0.8)", lineHeight: 1.6, margin: 0 }}>{row.does}</p>
+              <div style={{ flex: 1, padding: "16px 24px", borderRight: "1px solid rgba(13,43,30,0.07)" }}>
+                <div style={{ fontSize: 10, color: "rgba(13,43,30,0.3)", letterSpacing: 3, marginBottom: 6, textTransform: "uppercase", fontWeight: 700 }}>What it does</div>
+                <p style={{ fontSize: 16, color: "rgba(13,43,30,0.7)", lineHeight: 1.5, margin: 0 }}>{row.does}</p>
               </div>
 
-              {/* Where it stops */}
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "14px 20px", background: row.highlight ? "rgba(192,81,74,0.06)" : "rgba(13,43,30,0.03)" }}>
-                <div style={{ fontSize: 13, color: row.accent, letterSpacing: 3, marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}>{row.gapLabel}</div>
-                <p style={{ fontSize: 19, color: row.highlight ? "rgba(13,43,30,0.85)" : "rgba(13,43,30,0.55)", lineHeight: 1.6, margin: 0 }}>{row.gap}</p>
+              {/* Gap */}
+              <div style={{ flex: 1, padding: "16px 24px", background: row.highlight ? "rgba(192,81,74,0.04)" : "rgba(13,43,30,0.02)" }}>
+                <div style={{ fontSize: 10, color: row.accent, letterSpacing: 3, marginBottom: 6, textTransform: "uppercase", fontWeight: 700 }}>{row.gapLabel}</div>
+                <p style={{ fontSize: 16, color: row.highlight ? "rgba(13,43,30,0.8)" : "rgba(13,43,30,0.5)", lineHeight: 1.5, margin: 0, fontWeight: row.highlight ? 500 : 400 }}>{row.gap}</p>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Footer */}
-        <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(13,43,30,0.08)", paddingTop: 13 }}>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 17, color: "rgba(13,43,30,0.35)", fontStyle: "italic" }}>This isn't a people problem.</span>
-          <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 17, color: "rgba(13,43,30,0.35)", fontStyle: "italic" }}>It's a tooling gap that looks like a process — until it doesn't.</span>
+        <div style={{ marginTop: 20, display: "flex", justifyContent: "center" }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 18, color: "rgba(13,43,30,0.3)", fontStyle: "italic" }}>It's a tooling gap that looks like a process — until it doesn't.</span>
         </div>
       </div>
     </div>
@@ -515,7 +631,6 @@ function Slide3() {
 
   const HArrow = ({ labelTop, labelBottom }) => (
     <div style={{ display:"flex",flexDirection:"column",alignItems:"center",padding:"0 10px",flexShrink:0,gap:4 }}>
-      {/* Top arrow — left to right */}
       <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
         <div style={{ fontSize:11,color:C.muted,whiteSpace:"nowrap",marginBottom:3 }}>{labelTop}</div>
         <div style={{ display:"flex",alignItems:"center",gap:2 }}>
@@ -523,7 +638,6 @@ function Slide3() {
           <div style={{ width:0,height:0,borderTop:"5px solid transparent",borderBottom:"5px solid transparent",borderLeft:`8px solid ${C.accentTeal}` }} />
         </div>
       </div>
-      {/* Bottom arrow — right to left */}
       <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
         <div style={{ display:"flex",alignItems:"center",gap:2 }}>
           <div style={{ width:0,height:0,borderTop:"5px solid transparent",borderBottom:"5px solid transparent",borderRight:`8px solid ${C.accentTeal}` }} />
@@ -548,10 +662,7 @@ function Slide3() {
       <h2 style={{ fontFamily:"'EB Garamond',serif",fontSize:42,color:C.deepGreen,fontWeight:400,marginBottom:6 }}>Where Maybern sits</h2>
       <p style={{ fontSize:17,color:C.muted,marginBottom:32 }}>The GL records it. The admin reports it. Maybern owns the math in between.</p>
 
-      {/* MAIN ROW */}
       <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:0 }}>
-
-        {/* GL */}
         <div style={sideBox()}>
           <div style={{ fontSize:32,marginBottom:10 }}>🏛️</div>
           <div style={{ fontSize:16,fontWeight:600,color:C.mint,marginBottom:4 }}>General Ledger</div>
@@ -561,10 +672,7 @@ function Slide3() {
 
         <HArrow labelTop="data flows in" labelBottom="validates against" />
 
-        {/* CENTER COLUMN */}
         <div style={{ display:"flex",flexDirection:"column",alignItems:"center",flex:"0 0 auto" }}>
-
-          {/* Maybern / Excel box */}
           <div style={{
             width:310, minHeight:260, borderRadius:14, padding:"22px 20px",
             background:showMaybern ? C.deepGreen : "#fff",
@@ -574,7 +682,6 @@ function Slide3() {
             animation:showMaybern ? "pulseGlow 2.5s infinite" : "none"
           }} onClick={() => showMaybern && reset()}>
 
-            {/* BEFORE — house of cards */}
             <div style={{ opacity:showMaybern?0:1, transition:"opacity 0.3s", position:showMaybern?"absolute":"relative", inset:showMaybern?"22px":"auto", pointerEvents:showMaybern?"none":"auto" }}>
               <div style={{ textAlign:"center",marginBottom:10 }}>
                 <div style={{ fontSize:12,color:C.darkRed,fontWeight:700,letterSpacing:2 }}>CALCULATION LAYER TODAY</div>
@@ -602,7 +709,6 @@ function Slide3() {
               </div>
             </div>
 
-            {/* AFTER — Maybern */}
             <div style={{ opacity:showMaybern?1:0, transition:"opacity 0.5s ease 0.2s", position:showMaybern?"relative":"absolute", inset:showMaybern?"auto":"22px", pointerEvents:showMaybern?"auto":"none" }}>
               <div style={{ textAlign:"center",marginBottom:14 }}>
                 <div style={{ fontSize:11,color:C.accentTeal,fontWeight:700,letterSpacing:3,marginBottom:6 }}>WITH MAYBERN</div>
@@ -626,7 +732,6 @@ function Slide3() {
 
           <VArrow label="feeds" />
 
-          {/* Fund Admin */}
           <div style={{ background:C.deepGreen,borderRadius:12,padding:"18px 26px",textAlign:"center",width:220 }}>
             <div style={{ fontSize:26,marginBottom:7 }}>🗂️</div>
             <div style={{ fontSize:16,fontWeight:600,color:C.mint,marginBottom:3 }}>Fund Admin</div>
@@ -637,7 +742,6 @@ function Slide3() {
 
         <HArrow labelTop="outputs to" labelBottom="reconciles with" />
 
-        {/* Investor Portal */}
         <div style={sideBox()}>
           <div style={{ fontSize:32,marginBottom:10 }}>🖥️</div>
           <div style={{ fontSize:16,fontWeight:600,color:C.mint,marginBottom:4 }}>Investor Portal</div>
@@ -656,36 +760,38 @@ function Slide3() {
 }
 
 // ═══════════════════════════════════════
-// SLIDE — DISCOVERY QUESTIONS
+// SLIDE — DISCUSSION (UPDATED)
 // ═══════════════════════════════════════
 function SlideDiscovery() {
   const tiers = [
     {
-      label: "Your admin relationship",
+      label: "Your team & admin relationship",
       color: "#3DAA7A",
       bg: "#fff",
-      questions: [
-        "Walk me through what your team actually has to do to get the numbers ready at quarter-end.",
-        "Walk me through how that relationship with your admin actually works — where does your team\'s responsibility end and theirs begin?",
+      topics: [
+        "AUM & team size",
+        "Quarter-end process",
+        "Admin division of responsibility",
       ],
     },
     {
       label: "Your operating model",
       color: "#0D2B1E",
       bg: "rgba(13,43,30,0.04)",
-      questions: [
-        "When you get your numbers from your admin — what do you actually do with them?",
-        "When you add a new vehicle, does someone have to go rebuild the Excel, or does it just extend?",
+      topics: [
+        "Fund structures (closed- vs. open-ended)",
+        "Post-admin validation workflow",
+        "New vehicle setup process",
       ],
     },
     {
       label: "Your evaluation",
       color: "#3DAA7A",
       bg: "#fff",
-      questions: [
-        "Can you describe your internal buying process — and who is ultimately the decision maker for something like this?",
-        "Are you currently looking at any other tools at the moment?",
-        "What have you looked at before this conversation?",
+      topics: [
+        "Current fundraise status",
+        "Buying process & decision maker",
+        "Competitive landscape",
       ],
     },
   ];
@@ -705,47 +811,46 @@ function SlideDiscovery() {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 48px", justifyContent: "center", gap: 20, position: "relative", zIndex: 1 }}>
 
-        {/* Eyebrow */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ fontSize: 11, color: "#3DAA7A", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase" }}>Discovery</span>
+          <span style={{ fontSize: 11, color: "#3DAA7A", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase" }}>Discussion</span>
           <div style={{ flex: 1, height: 1, background: "rgba(13,43,30,0.1)" }} />
         </div>
 
-        {/* Headline */}
         <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 46, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.15, margin: 0 }}>
-          Questions worth asking
+          What we'd like to understand
         </h2>
 
-        {/* Main body — two-tier left, checklist right */}
         <div style={{ display: "flex", gap: 20 }}>
 
-          {/* Left — two topic tiers */}
+          {/* Left — three topic tiers */}
           <div style={{ flex: "0 0 58%", display: "flex", flexDirection: "column", gap: 0, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(13,43,30,0.1)", boxShadow: "0 1px 4px rgba(13,43,30,0.06)" }}>
             {tiers.map((tier, ti) => (
               <div key={ti} style={{
                 flex: 1,
                 background: tier.bg,
-                padding: "18px 24px",
-                borderBottom: ti === 0 ? "1px solid rgba(13,43,30,0.1)" : "none",
+                padding: "18px 28px",
+                borderBottom: ti < tiers.length - 1 ? "1px solid rgba(13,43,30,0.1)" : "none",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
               }}>
-                {/* Tier header */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                   <span style={{ fontSize: 11, color: tier.color, letterSpacing: 3, fontWeight: 700, textTransform: "uppercase" }}>{tier.label}</span>
                 </div>
-                {/* Questions */}
-                <div style={{ display: "flex", gap: 16 }}>
-                  {tier.questions.map((q, qi) => (
-                    <div key={qi} style={{ flex: 1, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  {tier.topics.map((topic, qi) => (
+                    <div key={qi} style={{
+                      display: "flex", gap: 10, alignItems: "center",
+                      padding: "8px 16px",
+                      borderRadius: 8,
+                      background: ti === 1 ? "rgba(13,43,30,0.06)" : "rgba(61,170,122,0.06)",
+                      border: `1px solid ${ti === 1 ? "rgba(13,43,30,0.1)" : "rgba(61,170,122,0.15)"}`,
+                    }}>
                       <div style={{
-                        width: 22, height: 22, borderRadius: "50%",
-                        background: ti === 0 ? "rgba(61,170,122,0.12)" : "rgba(13,43,30,0.08)",
-                        border: `1.5px solid ${tier.color}`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        flexShrink: 0, marginTop: 2,
-                      }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: tier.color }}>{qi + 1}</span>
-                      </div>
-                      <p style={{ fontSize: 15, color: "rgba(13,43,30,0.75)", lineHeight: 1.6, margin: 0 }}>{q}</p>
+                        width: 6, height: 6, borderRadius: "50%",
+                        background: tier.color, opacity: 0.5, flexShrink: 0,
+                      }} />
+                      <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(13,43,30,0.7)", whiteSpace: "nowrap" }}>{topic}</span>
                     </div>
                   ))}
                 </div>
@@ -823,16 +928,11 @@ function Slide4() {
       <div style={{ position: "absolute", right: -20, bottom: -80, fontFamily: "'EB Garamond', serif", fontSize: 380, color: "rgba(13,43,30,0.03)", lineHeight: 1, userSelect: "none", pointerEvents: "none" }}>?</div>
 
       <div style={{ flex: 1, display: "flex", gap: 0, position: "relative", zIndex: 1, alignItems: "flex-start", paddingTop: "10%", paddingBottom: "10%" }}>
-
-        {/* Left — Recap */}
         <div style={{ flex: "0 0 42%", display: "flex", flexDirection: "column", justifyContent: "flex-start", padding: "0 40px 0 56px", borderRight: "1px solid rgba(13,43,30,0.08)" }}>
-
           <span style={{ fontSize: 11, color: "#3DAA7A", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase", marginBottom: 18 }}>What we covered</span>
-
           <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 42, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.2, marginBottom: 36 }}>
             Here's what<br />we walked through.
           </h2>
-
           <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
             {recap.map((r, i) => (
               <div key={i} style={{ display: "flex", gap: 20, alignItems: "center" }}>
@@ -843,29 +943,20 @@ function Slide4() {
           </div>
         </div>
 
-        {/* Right — Fit check */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 56px 0 40px" }}>
-
           <span style={{ fontSize: 11, color: "#0D2B1E", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase", opacity: 0.35, marginBottom: 18 }}>Fit Check</span>
-
           <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 42, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.2, marginBottom: 36 }}>
             Have we earned the right<br />to next steps?<br />
             <em style={{ fontSize: 32, color: "rgba(13,43,30,0.4)" }}>Let's discuss.</em>
           </h2>
-
           <div style={{ marginBottom: 16 }}>
             <span style={{ fontSize: 11, color: "rgba(13,43,30,0.4)", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase" }}>Bare minimum for a fit</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {minimum.map((m, i) => (
               <div key={i} style={{
-                background: "#fff",
-                borderRadius: 10,
-                border: "1px solid rgba(13,43,30,0.09)",
-                padding: "18px 22px",
-                display: "flex",
-                gap: 18,
-                alignItems: "center",
+                background: "#fff", borderRadius: 10, border: "1px solid rgba(13,43,30,0.09)",
+                padding: "18px 22px", display: "flex", gap: 18, alignItems: "center",
                 boxShadow: "0 1px 3px rgba(13,43,30,0.05)",
               }}>
                 <div style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #3DAA7A", background: "rgba(61,170,122,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -876,7 +967,6 @@ function Slide4() {
             ))}
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -884,7 +974,7 @@ function Slide4() {
 
 
 // ═══════════════════════════════════════
-// SLIDE 5 — NEXT STEP
+// SLIDE 7 — NEXT STEP
 // ═══════════════════════════════════════
 function Slide5() {
   return (
@@ -892,15 +982,12 @@ function Slide5() {
       <div style={{ height:3, background:`linear-gradient(90deg,${C.accentTeal},transparent 55%)`, flexShrink:0 }} />
       <div style={{ position:"absolute", inset:0, opacity:0.03, backgroundImage:`linear-gradient(${C.accentTeal} 1px,transparent 1px),linear-gradient(90deg,${C.accentTeal} 1px,transparent 1px)`, backgroundSize:"72px 72px", pointerEvents:"none" }} />
 
-      {/* Logo */}
       <div style={{ position:"absolute", top:44, left:0, right:0, display:"flex", justifyContent:"center", alignItems:"center", gap:14, zIndex:2 }}>
         <span style={{ fontWeight:700, color:C.accentTeal, fontSize:34 }}>ıılı</span>
         <span style={{ color:C.mint, fontSize:30, fontWeight:300, letterSpacing:6, opacity:0.85 }}>maybern</span>
       </div>
 
       <div style={{ flex:1, display:"flex", gap:0, padding:"80px 0 32px" }}>
-
-        {/* LEFT — text */}
         <div style={{ flex:"0 0 46%", display:"flex", flexDirection:"column", justifyContent:"center", padding:"0 40px 0 72px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
             <div style={{ width:48, height:2, background:C.accentTeal }} />
@@ -921,11 +1008,9 @@ function Slide5() {
           </div>
         </div>
 
-        {/* RIGHT — shared animation panel */}
         <div style={{ flex:1, display:"flex", alignItems:"center", padding:"0 48px 0 24px" }}>
           <CalcPanel />
         </div>
-
       </div>
     </div>
   );
@@ -976,9 +1061,24 @@ The pull quote at the bottom is your close on this slide: "Your GL records what 
 
 Do not oversell here. This slide earns the right to ask questions on the next one.`,
 
-`SLIDE 5 — DISCOVERY
+`SLIDE 5 — DISCUSSION
 
-The questions on screen cover admin relationship, operating model, and evaluation. Work through them naturally.
+The slide shows topics, not questions. That's intentional — the verbatim questions live here in your notes so the conversation feels natural, not scripted.
+
+TIER 1 — TEAM & ADMIN RELATIONSHIP
+• "We have you at roughly $X AUM — how large is the finance and accounting team to support this?"
+• "Walk me through what your team actually has to do to get the numbers ready at quarter-end."
+• "Walk me through how that relationship with your admin actually works — where does your team's responsibility end and theirs begin?"
+
+TIER 2 — OPERATING MODEL
+• "Our understanding is you're running closed-ended funds — is that the full picture, or do you have open-ended vehicles too?"
+• "When you get your numbers from your admin — what do you actually do with them?"
+• "When you add a new vehicle, does someone have to go rebuild the Excel, or does it just extend?"
+
+TIER 3 — EVALUATION
+• "Are you currently raising a new fund?" — timing question disguised as structural. If yes, you have a natural urgency anchor.
+• "Can you describe your internal buying process — and who is ultimately the decision maker for something like this?"
+• "Are you currently looking at any other tools, or what have you looked at before this conversation?"
 
 MEDDPICC GATES
 
@@ -1038,7 +1138,7 @@ Get a specific date and time on the calendar before you hang up. A "sounds good,
 // SHELL
 // ═══════════════════════════════════════
 const slideComponents = [Slide1, SlideGoals, Slide2, Slide3, SlideDiscovery, Slide4, Slide5];
-const slideLabels = ["01 · Title", "02 · Agenda", "03 · Status Quo", "04 · Where We Sit", "05 · Discovery", "06 · Fit Check", "07 · Next Step"];
+const slideLabels = ["01 · Title", "02 · Agenda", "03 · Status Quo", "04 · Where We Sit", "05 · Discussion", "06 · Fit Check", "07 · Next Step"];
 const totalSlides = slideComponents.length;
 
 function AudienceView({ slideIndex, slideKey }) {
@@ -1054,6 +1154,7 @@ function AudienceView({ slideIndex, slideKey }) {
 }
 
 function App() {
+  const [unlocked, setUnlocked] = useState(false);
   const [current, setCurrent] = useState(0);
   const [slideKey, setSlideKey] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
@@ -1093,6 +1194,7 @@ function App() {
   }, [presenting, audienceWin]);
 
   useEffect(() => {
+    if (!unlocked) return;
     const h = e => {
       if (e.key==="ArrowRight"||e.key===" ") { e.preventDefault(); if(current<totalSlides-1) goTo(current+1); }
       if (e.key==="ArrowLeft") { e.preventDefault(); if(current>0) goTo(current-1); }
@@ -1101,9 +1203,13 @@ function App() {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [current, goTo, presenting, stopPresenting]);
+  }, [current, goTo, presenting, stopPresenting, unlocked]);
 
+  // Audience view bypasses password
   if (isAudience) return <AudienceView slideIndex={current} slideKey={slideKey} />;
+
+  // Password gate
+  if (!unlocked) return <PasswordScreen onUnlock={() => setUnlocked(true)} />;
 
   const S = slideComponents[current];
   const NextS = current+1 < totalSlides ? slideComponents[current+1] : null;

@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maybern — Owning the Calculation Layer</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body { font-family: 'DM Sans', sans-serif; background: #0f1a14; }
+  #root { width: 100vw; height: 100vh; }
+  @keyframes pulseGlow { 0%,100%{box-shadow:0 0 20px rgba(58,168,124,0.12)} 50%{box-shadow:0 0 36px rgba(58,168,124,0.32)} }
+  @keyframes wobble { 0%,100%{transform:rotate(-1.2deg)} 50%{transform:rotate(0.9deg)} }
+  @keyframes wobbleFast { 0%,100%{transform:rotate(-2.8deg) translateY(0)} 25%{transform:rotate(1.8deg) translateY(-1px)} 75%{transform:rotate(-1.5deg) translateY(1px)} }
+  @keyframes wobbleSlow { 0%,100%{transform:rotate(-0.7deg)} 50%{transform:rotate(0.7deg)} }
+  @keyframes fallLeft  { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(110px) translateX(-55px) rotate(-38deg);opacity:0} }
+  @keyframes fallRight { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(100px) translateX(55px) rotate(34deg);opacity:0} }
+  @keyframes fallDown  { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(120px) rotate(-10deg);opacity:0} }
+  @keyframes fallTopple{ 0%{transform:translateY(0) rotate(-3deg);opacity:1} 100%{transform:translateY(130px) translateX(-22px) rotate(-50deg);opacity:0} }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const C = {
+  deepGreen: "#091D13",
+  darkGreen: "#0d2619",
+  green: "#17412D",
+  mint: "#ECFFF5",
+  warmCream: "#FDF8F3",
+  darkRed: "#7A1B1B",
+  accentTeal: "#3AA87C",
+  muted: "#556B62",
+  mutedLight: "#8aab9b",
+  border: "#ddd8d0",
+};
+
+function Fade({ children, delay = 0, style = {} }) {
+  const [v, setV] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setV(true), delay); return () => clearTimeout(t); }, []);
+  return (
+    <div style={{ opacity: v?1:0, transform: v?"translateY(0)":"translateY(14px)", transition:"opacity 0.5s ease, transform 0.5s ease", ...style }}>
+      {children}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+// SHARED — CALCULATION PANEL ANIMATION
+// ═══════════════════════════════════════
+function CalcPanel() {
+  const [tick, setTick] = useState(0);
+  const [resolving, setResolving] = useState(new Set());
+  const [done, setDone] = useState(false);
+
+  const lpRows = [
+    { lp: "Anchor LP I",     commitment: "$25.0M", contributed: "$18.4M", nav: "$31.2M" },
+    { lp: "Pension Fund III",commitment: "$40.0M", contributed: "$34.1M", nav: "$52.8M" },
+    { lp: "Endowment Co.",   commitment: "$10.0M", contributed: "$8.9M",  nav: "$14.1M" },
+    { lp: "Family Office A", commitment: "$15.0M", contributed: "$12.2M", nav: "$19.7M" },
+    { lp: "SWF Partners",    commitment: "$50.0M", contributed: "$44.0M", nav: "$71.3M" },
+  ];
+  const waterfall = [
+    { tier: "Return of Capital",     pct: "100%", gp: "0%",   lp: "100%" },
+    { tier: "Preferred Return (8%)", pct: "8%",   gp: "0%",   lp: "100%" },
+    { tier: "GP Catch-Up",           pct: "—",    gp: "100%", lp: "0%"   },
+    { tier: "Carried Interest",      pct: "20%",  gp: "20%",  lp: "80%"  },
+  ];
+  const carryValues = ["$1.24M", "$2.11M", "$0.52M", "$0.79M", "$3.38M"];
+  const scenes = ["waterfall", "lp", "summary"];
+  const scene = scenes[Math.min(tick, scenes.length - 1)];
+
+  useEffect(() => {
+    if (done) return;
+    setResolving(new Set());
+    const timers = [];
+    if (scene === "lp") {
+      lpRows.forEach((_, i) => {
+        timers.push(setTimeout(() => {
+          setResolving(prev => { const n = new Set(prev); n.add(i); return n; });
+        }, 300 + i * 380));
+      });
+    }
+    if (tick < scenes.length - 1) {
+      timers.push(setTimeout(() => setTick(t => t + 1), scene === "lp" ? 4800 : 3600));
+    } else {
+      timers.push(setTimeout(() => setDone(true), scene === "lp" ? 4800 : 3600));
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [tick, done]);
+
+  return (
+    <div style={{ width:"100%", borderRadius:14, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(61,170,122,0.18)", overflow:"hidden", boxShadow:"0 8px 40px rgba(0,0,0,0.4)" }}>
+
+      {/* Titlebar */}
+      <div style={{ background:"rgba(0,0,0,0.25)", padding:"10px 18px", display:"flex", alignItems:"center", gap:10, borderBottom:"1px solid rgba(61,170,122,0.12)" }}>
+        <div style={{ display:"flex", gap:6 }}>
+          {["#ff5f57","#febc2e","#28c840"].map((c,i) => <div key={i} style={{ width:10, height:10, borderRadius:"50%", background:c, opacity:0.7 }} />)}
+        </div>
+        <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginLeft:8, letterSpacing:1 }}>
+          {scene === "waterfall" ? "Waterfall · Fund I · Q4 2025" : scene === "lp" ? "LP Economics · Carry Calculation" : "Distribution Summary · Q4 2025"}
+        </span>
+        <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
+          {scenes.map((s,i) => (
+            <div key={i} style={{ width:6, height:6, borderRadius:"50%", background: s===scene ? C.accentTeal : "rgba(255,255,255,0.15)", transition:"background 0.4s" }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding:"16px 18px", minHeight:220 }}>
+
+        {scene === "waterfall" && (
+          <div>
+            <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", marginBottom:8 }}>
+              {["Tier","Rate","GP","LP"].map((h,i) => (
+                <div key={i} style={{ fontSize:10, color:"rgba(61,170,122,0.6)", letterSpacing:2, fontWeight:700, textTransform:"uppercase", padding:"4px 10px", borderBottom:"1px solid rgba(61,170,122,0.12)" }}>{h}</div>
+              ))}
+            </div>
+            {waterfall.map((row, i) => (
+              <div key={i} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", background: i%2===0 ? "rgba(255,255,255,0.03)" : "transparent", borderRadius:4, animation:`fadeIn 0.5s ease ${i*0.28}s both` }}>
+                <div style={{ fontSize:12, color:C.mint, padding:"8px 10px", fontWeight:500 }}>{row.tier}</div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", padding:"8px 10px" }}>{row.pct}</div>
+                <div style={{ fontSize:12, color: row.gp!=="0%" ? C.accentTeal : "rgba(255,255,255,0.25)", padding:"8px 10px", fontWeight: row.gp!=="0%" ? 700 : 400 }}>{row.gp}</div>
+                <div style={{ fontSize:12, color: row.lp!=="0%" ? C.accentTeal : "rgba(255,255,255,0.25)", padding:"8px 10px", fontWeight: row.lp!=="0%" ? 700 : 400 }}>{row.lp}</div>
+              </div>
+            ))}
+            <div style={{ marginTop:14, padding:"10px 12px", borderRadius:6, background:"rgba(61,170,122,0.08)", border:"1px solid rgba(61,170,122,0.2)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:11, color:"rgba(61,170,122,0.7)", letterSpacing:2, fontWeight:700 }}>DISTRIBUTABLE PROCEEDS</span>
+              <span style={{ fontSize:16, color:C.accentTeal, fontWeight:700 }}>$189.1M</span>
+            </div>
+          </div>
+        )}
+
+        {scene === "lp" && (
+          <div>
+            <div style={{ display:"grid", gridTemplateColumns:"1.6fr 1fr 1fr 1fr 1fr", marginBottom:8 }}>
+              {["LP","Commitment","Contributed","NAV","Carry"].map((h,i) => (
+                <div key={i} style={{ fontSize:10, color:"rgba(61,170,122,0.6)", letterSpacing:2, fontWeight:700, textTransform:"uppercase", padding:"4px 8px", borderBottom:"1px solid rgba(61,170,122,0.12)" }}>{h}</div>
+              ))}
+            </div>
+            {lpRows.map((row, i) => (
+              <div key={i} style={{ display:"grid", gridTemplateColumns:"1.6fr 1fr 1fr 1fr 1fr", background: i%2===0 ? "rgba(255,255,255,0.03)" : "transparent", borderRadius:4 }}>
+                <div style={{ fontSize:12, color:C.mint, padding:"7px 8px", fontWeight:500 }}>{row.lp}</div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", padding:"7px 8px" }}>{row.commitment}</div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", padding:"7px 8px" }}>{row.contributed}</div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", padding:"7px 8px" }}>{row.nav}</div>
+                <div style={{ fontSize:12, padding:"7px 8px", color: resolving.has(i) ? C.accentTeal : "rgba(255,255,255,0.2)", fontWeight: resolving.has(i) ? 700 : 400, transition:"color 0.3s" }}>
+                  {resolving.has(i) ? carryValues[i] : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {scene === "summary" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {[
+              { label:"Total Distributions", value:"$189.1M", sub:"Q4 2025 · Fund I" },
+              { label:"GP Carry Earned",      value:"$14.8M",  sub:"20% on proceeds above hurdle" },
+              { label:"LP Net Distributions", value:"$174.3M", sub:"Across 5 limited partners" },
+              { label:"Preferred Return Met", value:"✓ 8.0%",  sub:"All LPs above hurdle threshold" },
+            ].map((item, i) => (
+              <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", borderRadius:8, background: i===0 ? "rgba(61,170,122,0.1)" : "rgba(255,255,255,0.03)", border:`1px solid ${i===0 ? "rgba(61,170,122,0.25)" : "rgba(255,255,255,0.06)"}`, animation:`fadeIn 0.5s ease ${i*0.22}s both` }}>
+                <div>
+                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:2 }}>{item.label}</div>
+                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{item.sub}</div>
+                </div>
+                <div style={{ fontSize: i===0 ? 18 : 15, fontWeight:700, color: i===3 ? "#4ecb71" : C.accentTeal }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding:"8px 18px", borderTop:"1px solid rgba(61,170,122,0.1)", display:"flex", alignItems:"center", gap:8 }}>
+        <div style={{ width:6, height:6, borderRadius:"50%", background: done ? "rgba(61,170,122,0.4)" : C.accentTeal, boxShadow: done ? "none" : `0 0 6px ${C.accentTeal}` }} />
+        <span style={{ fontSize:10, color:"rgba(61,170,122,0.5)", letterSpacing:1 }}>
+          {done ? "CALCULATION COMPLETE · Audit-ready" : "LIVE · Centralized · Audit-ready"}
+        </span>
+        {done && (
+          <button onClick={() => { setTick(0); setDone(false); setResolving(new Set()); }} style={{ marginLeft:"auto", fontSize:10, color:"rgba(61,170,122,0.4)", background:"none", border:"1px solid rgba(61,170,122,0.2)", borderRadius:4, padding:"2px 8px", cursor:"pointer", letterSpacing:1 }}>
+            REPLAY
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+// SLIDE 1 — TITLE
+// ═══════════════════════════════════════
+function Slide1() {
+  return (
+    <div style={{ background:C.deepGreen, height:"100%", display:"flex", flexDirection:"column", position:"relative", overflow:"hidden" }}>
+      <div style={{ position:"absolute", inset:0, opacity:0.03, backgroundImage:`linear-gradient(${C.accentTeal} 1px,transparent 1px),linear-gradient(90deg,${C.accentTeal} 1px,transparent 1px)`, backgroundSize:"72px 72px", pointerEvents:"none" }} />
+
+      {/* Logo */}
+      <div style={{ position:"absolute", top:44, left:0, right:0, display:"flex", justifyContent:"center", alignItems:"center", gap:14, zIndex:2 }}>
+        <span style={{ fontWeight:700, color:C.accentTeal, fontSize:34 }}>ıılı</span>
+        <span style={{ color:C.mint, fontSize:30, fontWeight:300, letterSpacing:6, opacity:0.85 }}>maybern</span>
+      </div>
+
+      <div style={{ flex:1, display:"flex", gap:0, padding:"80px 0 32px" }}>
+
+        {/* LEFT — text */}
+        <div style={{ flex:"0 0 46%", display:"flex", flexDirection:"column", justifyContent:"center", padding:"0 40px 0 72px" }}>
+          <Fade delay={80}>
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:26 }}>
+              <div style={{ width:60, height:2, background:C.accentTeal }} />
+              <span style={{ fontSize:11, color:C.accentTeal, letterSpacing:5, fontWeight:500 }}>INTRODUCTORY OVERVIEW</span>
+            </div>
+          </Fade>
+          <Fade delay={260}>
+            <h1 style={{ fontFamily:"'EB Garamond',serif", fontSize:56, fontWeight:400, color:C.mint, lineHeight:1.12, marginBottom:28, maxWidth:500 }}>
+              Owning the<br/><em style={{ color:C.accentTeal }}>Calculation Layer</em>
+            </h1>
+          </Fade>
+          <Fade delay={440}>
+            <p style={{ fontSize:16, color:C.mint, opacity:0.6, lineHeight:1.65, maxWidth:420, fontWeight:300 }}>
+              How fund finance teams move from manageable complexity to defensible confidence.
+            </p>
+          </Fade>
+        </div>
+
+        {/* RIGHT — animation */}
+        <Fade delay={700} style={{ flex:1, display:"flex", alignItems:"center", padding:"0 48px 0 24px" }}>
+          <CalcPanel />
+        </Fade>
+
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+// SLIDE 2 — GOALS / AGENDA
+// ═══════════════════════════════════════
+function SlideGoals() {
+  const items = [
+    {
+      num: "01",
+      label: "Who we work with",
+      body: "The profile of manager Maybern was built for — so you can place yourself relative to it.",
+    },
+    {
+      num: "02",
+      label: "Where Maybern sits",
+      body: "The layer of fund operations we occupy, and how it relates to what you already have in place.",
+    },
+    {
+      num: "03",
+      label: "How your calculation layer works today",
+      body: "A few questions about where your waterfall logic lives — that's what tells us both whether there's a fit.",
+    },
+  ];
+
+  return (
+    <div style={{
+      background: C.deepGreen,
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      position: "relative",
+      overflow: "hidden",
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      {/* Top accent bar */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${C.accentTeal}, transparent 55%)` }} />
+
+      {/* Grid watermark */}
+      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(61,170,122,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(61,170,122,0.035) 1px, transparent 1px)", backgroundSize: "48px 48px", pointerEvents: "none" }} />
+
+      {/* Large M watermark */}
+      <div style={{ position: "absolute", right: -40, bottom: -120, fontFamily: "'EB Garamond', serif", fontSize: 500, color: "rgba(61,170,122,0.03)", lineHeight: 1, userSelect: "none", pointerEvents: "none", fontWeight: 400 }}>M</div>
+
+      {/* Centered content */}
+      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 780, padding: "0 60px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+
+        {/* Eyebrow */}
+        <span style={{ fontSize: 11, color: C.accentTeal, letterSpacing: 4, fontWeight: 600, textTransform: "uppercase", marginBottom: 22 }}>Today's agenda</span>
+
+        {/* Headline */}
+        <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 52, fontWeight: 400, color: C.mint, lineHeight: 1.18, marginBottom: 12, margin: "0 0 12px" }}>
+          Here's what we'll cover —
+        </h2>
+        <p style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 26, color: "rgba(236,255,245,0.5)", lineHeight: 1.4, marginBottom: 48, margin: "0 0 48px" }}>
+          so you can decide if this is worth going further.
+        </p>
+
+        {/* Divider */}
+        <div style={{ width: 48, height: 1, background: C.accentTeal, opacity: 0.4, marginBottom: 48 }} />
+
+        {/* Three items — stacked, centered */}
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 32 }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 13, color: C.accentTeal, letterSpacing: 3, fontWeight: 400 }}>{item.num}</span>
+              <span style={{ fontSize: 20, fontWeight: 600, color: C.mint, letterSpacing: -0.3 }}>{item.label}</span>
+              <span style={{ fontSize: 15, color: "rgba(255,255,255,0.42)", lineHeight: 1.65, maxWidth: 560 }}>{item.body}</span>
+              {i < items.length - 1 && (
+                <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)", marginTop: 8 }} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Footer note */}
+        <p style={{ fontFamily: "'EB Garamond', serif", fontStyle: "italic", fontSize: 15, color: "rgba(255,255,255,0.25)", marginTop: 44, lineHeight: 1.6 }}>
+          We're not here to fit a square peg in a round hole. If there's no fit, we'll both know it by the end.
+        </p>
+
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+// SLIDE 2 — STATUS QUO (now SLIDE 3)
+// ═══════════════════════════════════════
+function Slide2() {
+  const rows = [
+    {
+      num: "01",
+      title: "General Ledger",
+      badge: "TRANSACTION RECORD",
+      badgeColor: "#3DAA7A",
+      icon: "🏛️",
+      does: "Captures every journal entry, closes the books at quarter-end, and maintains the auditable transaction record.",
+      gapLabel: "What it wasn't built for",
+      gap: "Waterfall mechanics, LP-level economics, and carry calculations aren't GL concepts. It records what happened at the entity level — not what it means for each investor.",
+      accent: "#3DAA7A",
+      highlight: false,
+    },
+    {
+      num: "02",
+      title: "Fund Administrator",
+      badge: "REPORTING FUNCTION",
+      badgeColor: "#8aab9b",
+      icon: "🗂️",
+      does: "Prepares financial statements, K-1s, and NAV reporting. Handles the statutory and investor-facing output of the fund.",
+      gapLabel: "Where the logic lives",
+      gap: "Admins execute what they're configured to execute. How your LPA is interpreted, how your waterfall tiers work, how carry is structured — that configuration stays with the manager.",
+      accent: "#8aab9b",
+      highlight: false,
+    },
+    {
+      num: "03",
+      title: "Your Excel Models",
+      badge: "THE SHADOW LAYER",
+      badgeColor: "#c0514a",
+      icon: "📊",
+      does: "Waterfalls, carried interest, promote calcs. Management fee schedules. Distribution models and LP-level IRR.",
+      gapLabel: "Why it exists",
+      gap: "Because neither system above was built to own this logic, it has to live somewhere. For most managers, it lives here — in files built over time by people who understand the structure.",
+      accent: "#c0514a",
+      highlight: true,
+    },
+  ];
+
+  return (
+    <div style={{
+      background: "#F2F5EF",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      position: "relative",
+      overflow: "hidden",
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      {/* Top accent bar */}
+      <div style={{ height: 3, background: `linear-gradient(90deg, #3DAA7A, transparent 55%)`, flexShrink: 0 }} />
+
+      {/* Watermark number */}
+      <div style={{ position: "absolute", right: -20, bottom: -80, fontFamily: "'EB Garamond', serif", fontSize: 420, color: "rgba(13,43,30,0.04)", lineHeight: 1, userSelect: "none", pointerEvents: "none" }}>2</div>
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "26px 40px 20px", position: "relative", zIndex: 1 }}>
+
+        {/* Eyebrow */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+          <span style={{ fontSize: 11, color: "#3DAA7A", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase" }}>The status quo</span>
+          <div style={{ flex: 1, height: 1, background: "rgba(13,43,30,0.1)" }} />
+          <span style={{ fontSize: 11, color: "rgba(13,43,30,0.35)", letterSpacing: 1 }}>Fund Controllers · Accounting Administrators</span>
+        </div>
+
+        {/* Headline */}
+        <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 46, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.15, marginBottom: 12 }}>
+          Two systems were built to handle fund operations.<br/>
+          <em style={{ color: "#3DAA7A" }}>Neither owns the calculation layer.</em>
+        </h2>
+
+        {/* Opening statement */}
+        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: "#556B62", lineHeight: 1.65, marginBottom: 14, maxWidth: 780, borderLeft: "2px solid #3DAA7A", paddingLeft: 14 }}>
+          Private fund operations were built around two systems — a general ledger that closes the books, and a fund administrator that handles reporting. Neither was designed to own the calculation layer in between. The waterfalls, the carried interest, the per-LP economics. That math has always landed wherever a team was willing to build it. That's the gap Maybern was designed to fill.
+        </p>
+
+        {/* Rows */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+          {rows.map((row, ri) => (
+            <div key={ri} style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "stretch",
+              borderRadius: 10,
+              overflow: "hidden",
+              border: row.highlight ? "1.5px solid rgba(192,81,74,0.3)" : "1px solid rgba(13,43,30,0.1)",
+              background: row.highlight ? "rgba(192,81,74,0.06)" : "#fff",
+              boxShadow: "0 1px 4px rgba(13,43,30,0.06)",
+            }}>
+              {/* Left accent bar */}
+              <div style={{ width: 4, background: row.accent, flexShrink: 0, opacity: row.highlight ? 1 : 0.7 }} />
+
+              {/* Number + icon */}
+              <div style={{ width: 70, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "12px 0", borderRight: "1px solid rgba(13,43,30,0.07)", gap: 6 }}>
+                <span style={{ fontSize: 26 }}>{row.icon}</span>
+                <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 22, color: "rgba(13,43,30,0.2)", fontWeight: 400 }}>{row.num}</span>
+              </div>
+
+              {/* Title + badge */}
+              <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center", padding: "14px 20px", borderRight: "1px solid rgba(13,43,30,0.07)", gap: 8 }}>
+                <span style={{ fontSize: 24, fontWeight: 700, color: "#0D2B1E", letterSpacing: -0.3 }}>{row.title}</span>
+                <div style={{ display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 20, background: "rgba(13,43,30,0.04)", border: `1px solid ${row.badgeColor}`, alignSelf: "flex-start" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: row.badgeColor }}>{row.badge}</span>
+                </div>
+              </div>
+
+              {/* What it does */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "14px 20px", borderRight: "1px solid rgba(13,43,30,0.07)" }}>
+                <div style={{ fontSize: 13, color: "rgba(13,43,30,0.35)", letterSpacing: 3, marginBottom: 8, textTransform: "uppercase", fontWeight: 600 }}>What it does</div>
+                <p style={{ fontSize: 21, color: "rgba(13,43,30,0.8)", lineHeight: 1.6, margin: 0 }}>{row.does}</p>
+              </div>
+
+              {/* Where it stops */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "14px 20px", background: row.highlight ? "rgba(192,81,74,0.06)" : "rgba(13,43,30,0.03)" }}>
+                <div style={{ fontSize: 13, color: row.accent, letterSpacing: 3, marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}>{row.gapLabel}</div>
+                <p style={{ fontSize: 19, color: row.highlight ? "rgba(13,43,30,0.85)" : "rgba(13,43,30,0.55)", lineHeight: 1.6, margin: 0 }}>{row.gap}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(13,43,30,0.08)", paddingTop: 13 }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 17, color: "rgba(13,43,30,0.35)", fontStyle: "italic" }}>This isn't a people problem.</span>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 17, color: "rgba(13,43,30,0.35)", fontStyle: "italic" }}>It's a tooling gap that looks like a process — until it doesn't.</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function Slide3() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [blast, setBlast] = useState(false);
+  const [showMaybern, setShowMaybern] = useState(false);
+
+  const triggerCollapse = () => {
+    if (collapsed || showMaybern) return;
+    setBlast(true); setCollapsed(true);
+    setTimeout(() => { setBlast(false); setShowMaybern(true); }, 1400);
+  };
+  const reset = () => { setCollapsed(false); setBlast(false); setShowMaybern(false); };
+
+  const collapseAnims = {
+    top:"fallTopple 0.65s ease-in 0.05s forwards",
+    m0:"fallLeft 0.56s ease-in 0.13s forwards",
+    m1:"fallDown 0.60s ease-in 0.19s forwards",
+    m2:"fallRight 0.56s ease-in 0.16s forwards",
+    b0:"fallLeft 0.50s ease-in 0.28s forwards",
+    b1:"fallDown 0.46s ease-in 0.33s forwards",
+    b2:"fallDown 0.50s ease-in 0.31s forwards",
+    b3:"fallRight 0.50s ease-in 0.26s forwards",
+  };
+
+  const sideBox = (extra={}) => ({
+    background: C.deepGreen, borderRadius:12, padding:"28px 20px",
+    textAlign:"center", flex:"0 0 170px", ...extra
+  });
+
+  const HArrow = ({ labelTop, labelBottom }) => (
+    <div style={{ display:"flex",flexDirection:"column",alignItems:"center",padding:"0 10px",flexShrink:0,gap:4 }}>
+      {/* Top arrow — left to right */}
+      <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
+        <div style={{ fontSize:11,color:C.muted,whiteSpace:"nowrap",marginBottom:3 }}>{labelTop}</div>
+        <div style={{ display:"flex",alignItems:"center",gap:2 }}>
+          <div style={{ width:36,height:2,background:C.accentTeal }} />
+          <div style={{ width:0,height:0,borderTop:"5px solid transparent",borderBottom:"5px solid transparent",borderLeft:`8px solid ${C.accentTeal}` }} />
+        </div>
+      </div>
+      {/* Bottom arrow — right to left */}
+      <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:2 }}>
+          <div style={{ width:0,height:0,borderTop:"5px solid transparent",borderBottom:"5px solid transparent",borderRight:`8px solid ${C.accentTeal}` }} />
+          <div style={{ width:36,height:2,background:C.accentTeal }} />
+        </div>
+        <div style={{ fontSize:11,color:C.muted,whiteSpace:"nowrap",marginTop:3 }}>{labelBottom}</div>
+      </div>
+    </div>
+  );
+
+  const VArrow = ({ label }) => (
+    <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"6px 0" }}>
+      <div style={{ width:2,height:28,background:C.accentTeal }} />
+      <div style={{ width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderTop:`9px solid ${C.accentTeal}` }} />
+      <div style={{ fontSize:12,color:C.muted,marginTop:2,whiteSpace:"nowrap" }}>{label}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ background:C.warmCream,height:"100%",padding:"28px 52px",display:"flex",flexDirection:"column",justifyContent:"center" }}>
+      <div style={{ width:64,height:3,background:C.accentTeal,marginBottom:12 }} />
+      <h2 style={{ fontFamily:"'EB Garamond',serif",fontSize:42,color:C.deepGreen,fontWeight:400,marginBottom:6 }}>Where Maybern sits</h2>
+      <p style={{ fontSize:17,color:C.muted,marginBottom:32 }}>The GL records it. The admin reports it. Maybern owns the math in between.</p>
+
+      {/* MAIN ROW */}
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:0 }}>
+
+        {/* GL */}
+        <div style={sideBox()}>
+          <div style={{ fontSize:32,marginBottom:10 }}>🏛️</div>
+          <div style={{ fontSize:16,fontWeight:600,color:C.mint,marginBottom:4 }}>General Ledger</div>
+          <div style={{ fontSize:11,color:C.accentTeal,letterSpacing:1,marginBottom:10 }}>TRANSACTION RECORD</div>
+          <div style={{ fontSize:13,color:C.mint,opacity:0.6,lineHeight:1.5 }}>Trial balances<br/>Journal entries</div>
+        </div>
+
+        <HArrow labelTop="data flows in" labelBottom="validates against" />
+
+        {/* CENTER COLUMN */}
+        <div style={{ display:"flex",flexDirection:"column",alignItems:"center",flex:"0 0 auto" }}>
+
+          {/* Maybern / Excel box */}
+          <div style={{
+            width:310, minHeight:260, borderRadius:14, padding:"22px 20px",
+            background:showMaybern ? C.deepGreen : "#fff",
+            border:showMaybern ? `2.5px solid ${C.accentTeal}` : "2px dashed #ccc",
+            transition:"all 0.6s ease", position:"relative", overflow:"hidden",
+            cursor:showMaybern ? "pointer" : "default",
+            animation:showMaybern ? "pulseGlow 2.5s infinite" : "none"
+          }} onClick={() => showMaybern && reset()}>
+
+            {/* BEFORE — house of cards */}
+            <div style={{ opacity:showMaybern?0:1, transition:"opacity 0.3s", position:showMaybern?"absolute":"relative", inset:showMaybern?"22px":"auto", pointerEvents:showMaybern?"none":"auto" }}>
+              <div style={{ textAlign:"center",marginBottom:10 }}>
+                <div style={{ fontSize:12,color:C.darkRed,fontWeight:700,letterSpacing:2 }}>CALCULATION LAYER TODAY</div>
+              </div>
+              <div style={{ display:"flex",justifyContent:"center",marginBottom:12,position:"relative" }}>
+                <div style={{ position:"relative",width:240,height:140 }}>
+                  {[0,1,2,3].map(j => (
+                    <div key={j} onClick={e=>{e.stopPropagation();triggerCollapse();}} style={{ position:"absolute",left:8+j*56,top:90,width:52,height:36,background:"#fff",border:"2px solid #d0d0d0",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",cursor:collapsed?"default":"pointer",animation:collapsed?collapseAnims[`b${j}`]:`wobbleSlow ${3+j*0.4}s ease-in-out infinite`,boxShadow:"0 2px 6px rgba(0,0,0,0.08)",zIndex:1 }}>
+                      <span style={{ fontSize:12,color:"#1D6F42",fontWeight:700 }}>XLS</span>
+                    </div>
+                  ))}
+                  {[0,1,2].map(j => (
+                    <div key={j} style={{ position:"absolute",left:36+j*56,top:46,width:52,height:36,background:"#fff",border:"2px solid #d0d0d0",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",animation:collapsed?collapseAnims[`m${j}`]:`wobble ${2.2+j*0.3}s ease-in-out infinite`,boxShadow:"0 2px 8px rgba(0,0,0,0.1)",zIndex:2 }}>
+                      <span style={{ fontSize:12,color:"#1D6F42",fontWeight:700 }}>XLS</span>
+                    </div>
+                  ))}
+                  <div style={{ position:"absolute",left:92,top:4,width:56,height:36,background:"#fff",border:"2px solid #c0a0a0",borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",animation:collapsed?collapseAnims.top:"wobbleFast 1.8s ease-in-out infinite",boxShadow:"0 3px 10px rgba(122,27,27,0.12)",zIndex:3 }}>
+                    <span style={{ fontSize:12,color:"#1D6F42",fontWeight:700 }}>XLS</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:15,fontWeight:600,color:C.darkRed,fontStyle:"italic" }}>{collapsed?"Pull one card — everything falls.":"House of Cards"}</div>
+                {!collapsed && <div style={{ fontSize:13,color:C.muted,marginTop:3 }}>Click any card to collapse</div>}
+              </div>
+            </div>
+
+            {/* AFTER — Maybern */}
+            <div style={{ opacity:showMaybern?1:0, transition:"opacity 0.5s ease 0.2s", position:showMaybern?"relative":"absolute", inset:showMaybern?"auto":"22px", pointerEvents:showMaybern?"auto":"none" }}>
+              <div style={{ textAlign:"center",marginBottom:14 }}>
+                <div style={{ fontSize:11,color:C.accentTeal,fontWeight:700,letterSpacing:3,marginBottom:6 }}>WITH MAYBERN</div>
+                <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:7,marginBottom:10 }}>
+                  <span style={{ fontWeight:700,color:C.accentTeal,fontSize:20 }}>ıılı</span>
+                  <span style={{ color:C.mint,fontSize:22,fontWeight:300 }}>maybern</span>
+                </div>
+              </div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:7 }}>
+                {[["📊","Waterfalls"],["📈","NAV"],["💰","Distributions"],["📋","Mgmt Fees"]].map(([icon,label],i) => (
+                  <div key={i} style={{ background:C.green,borderRadius:6,padding:"10px 12px",textAlign:"center" }}>
+                    <div style={{ fontSize:16,marginBottom:3 }}>{icon}</div>
+                    <div style={{ fontSize:13,fontWeight:600,color:C.mint }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ textAlign:"center",marginTop:12,fontSize:12,color:C.mint,opacity:0.7 }}>Centralized · Auditable · Version-controlled</div>
+              <div style={{ textAlign:"center",marginTop:4,fontSize:11,color:C.muted }}>Click to reset</div>
+            </div>
+          </div>
+
+          <VArrow label="feeds" />
+
+          {/* Fund Admin */}
+          <div style={{ background:C.deepGreen,borderRadius:12,padding:"18px 26px",textAlign:"center",width:220 }}>
+            <div style={{ fontSize:26,marginBottom:7 }}>🗂️</div>
+            <div style={{ fontSize:16,fontWeight:600,color:C.mint,marginBottom:3 }}>Fund Admin</div>
+            <div style={{ fontSize:11,color:C.accentTeal,letterSpacing:1,marginBottom:7 }}>THIRD-PARTY</div>
+            <div style={{ fontSize:13,color:C.mint,opacity:0.6,lineHeight:1.5 }}>Books &amp; records<br/>Reconciliation</div>
+          </div>
+        </div>
+
+        <HArrow labelTop="outputs to" labelBottom="reconciles with" />
+
+        {/* Investor Portal */}
+        <div style={sideBox()}>
+          <div style={{ fontSize:32,marginBottom:10 }}>🖥️</div>
+          <div style={{ fontSize:16,fontWeight:600,color:C.mint,marginBottom:4 }}>Investor Portal</div>
+          <div style={{ fontSize:11,color:C.accentTeal,letterSpacing:1,marginBottom:10 }}>LP-FACING</div>
+          <div style={{ fontSize:13,color:C.mint,opacity:0.6,lineHeight:1.5 }}>Statements<br/>K-1s</div>
+        </div>
+      </div>
+
+      <div style={{ marginTop:26,background:C.deepGreen,borderRadius:8,padding:"16px 28px",textAlign:"center" }}>
+        <p style={{ fontSize:17,color:C.mint,fontFamily:"'EB Garamond',serif",fontStyle:"italic",lineHeight:1.6,margin:0 }}>
+          "Your GL records what happened. Your admin reports it. Maybern is where you prove it — before anyone asks."
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+// SLIDE — DISCOVERY QUESTIONS
+// ═══════════════════════════════════════
+function SlideDiscovery() {
+  const tiers = [
+    {
+      label: "Your admin relationship",
+      color: "#3DAA7A",
+      bg: "#fff",
+      questions: [
+        "Walk me through what your team actually has to do to get the numbers ready at quarter-end.",
+        "Walk me through how that relationship with your admin actually works — where does your team\'s responsibility end and theirs begin?",
+      ],
+    },
+    {
+      label: "Your operating model",
+      color: "#0D2B1E",
+      bg: "rgba(13,43,30,0.04)",
+      questions: [
+        "When you get your numbers from your admin — what do you actually do with them?",
+        "When you add a new vehicle, does someone have to go rebuild the Excel, or does it just extend?",
+      ],
+    },
+    {
+      label: "Your evaluation",
+      color: "#3DAA7A",
+      bg: "#fff",
+      questions: [
+        "Can you describe your internal buying process — and who is ultimately the decision maker for something like this?",
+        "Are you currently looking at any other tools at the moment?",
+        "What have you looked at before this conversation?",
+      ],
+    },
+  ];
+
+  return (
+    <div style={{
+      background: "#F2F5EF",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      fontFamily: "'DM Sans', sans-serif",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      <div style={{ height: 3, background: `linear-gradient(90deg, #3DAA7A, transparent 55%)`, flexShrink: 0 }} />
+      <div style={{ position: "absolute", right: -20, bottom: -80, fontFamily: "'EB Garamond', serif", fontSize: 380, color: "rgba(13,43,30,0.035)", lineHeight: 1, userSelect: "none", pointerEvents: "none" }}>?</div>
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 48px", justifyContent: "center", gap: 20, position: "relative", zIndex: 1 }}>
+
+        {/* Eyebrow */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <span style={{ fontSize: 11, color: "#3DAA7A", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase" }}>Discovery</span>
+          <div style={{ flex: 1, height: 1, background: "rgba(13,43,30,0.1)" }} />
+        </div>
+
+        {/* Headline */}
+        <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 46, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.15, margin: 0 }}>
+          Questions worth asking
+        </h2>
+
+        {/* Main body — two-tier left, checklist right */}
+        <div style={{ display: "flex", gap: 20 }}>
+
+          {/* Left — two topic tiers */}
+          <div style={{ flex: "0 0 58%", display: "flex", flexDirection: "column", gap: 0, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(13,43,30,0.1)", boxShadow: "0 1px 4px rgba(13,43,30,0.06)" }}>
+            {tiers.map((tier, ti) => (
+              <div key={ti} style={{
+                flex: 1,
+                background: tier.bg,
+                padding: "18px 24px",
+                borderBottom: ti === 0 ? "1px solid rgba(13,43,30,0.1)" : "none",
+              }}>
+                {/* Tier header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <span style={{ fontSize: 11, color: tier.color, letterSpacing: 3, fontWeight: 700, textTransform: "uppercase" }}>{tier.label}</span>
+                </div>
+                {/* Questions */}
+                <div style={{ display: "flex", gap: 16 }}>
+                  {tier.questions.map((q, qi) => (
+                    <div key={qi} style={{ flex: 1, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: "50%",
+                        background: ti === 0 ? "rgba(61,170,122,0.12)" : "rgba(13,43,30,0.08)",
+                        border: `1.5px solid ${tier.color}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0, marginTop: 2,
+                      }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: tier.color }}>{qi + 1}</span>
+                      </div>
+                      <p style={{ fontSize: 15, color: "rgba(13,43,30,0.75)", lineHeight: 1.6, margin: 0 }}>{q}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Right — Calculation Alignment */}
+          <div style={{ flex: 1, borderRadius: 12, background: "#0D2B1E", padding: "22px 24px", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <span style={{ fontSize: 11, color: "#3DAA7A", letterSpacing: 3, fontWeight: 700, textTransform: "uppercase" }}>Calculation Alignment</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { num: "01", label: "Waterfall type", sub: "European vs. American, deal-by-deal vs. fund-level" },
+                { num: "02", label: "Carry structure", sub: "Hurdle rate, catch-up, GP split %" },
+                { num: "03", label: "Fee structure", sub: "Mgmt fees, waivers, offsets" },
+                { num: "04", label: "Vehicle complexity", sub: "# of funds, blockers, feeders, side letters" },
+                { num: "05", label: "LP economics", sub: "Standard terms or LP-specific variations" },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  background: "rgba(61,170,122,0.07)",
+                  border: "1px solid rgba(61,170,122,0.18)",
+                  borderRadius: 8,
+                  padding: "12px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                }}>
+                  <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 20, color: "rgba(61,170,122,0.4)", flexShrink: 0, width: 28 }}>{item.num}</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#ECFFF5", letterSpacing: -0.2, marginBottom: 3 }}>{item.label}</div>
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", lineHeight: 1.5 }}>{item.sub}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════
+// SLIDE 6 — RECAP & FIT CHECK
+// ═══════════════════════════════════════
+function Slide4() {
+  const recap = [
+    { num: "01", label: "Who we work with", detail: "The profile of manager Maybern was built for — and where you sit relative to it." },
+    { num: "02", label: "Where Maybern sits", detail: "The calculation layer between your GL and your reporting function — and what it owns." },
+    { num: "03", label: "Your calculation layer", detail: "Where the logic lives, who built it, and who runs it today." },
+  ];
+
+  const minimum = [
+    { check: "Someone internal owns the calculation logic", sub: "Not fully outsourced — someone on your team is responsible for it being right." },
+    { check: "That logic lives somewhere that doesn't scale", sub: "Person-dependent, hard to audit, or fragile to change." },
+    { check: "The math is complex enough to have real stakes", sub: "At minimum: a waterfall with a hurdle, carry, and LP-level splits." },
+    { check: "Something is prompting this now — not in six months", sub: "A fund event, a new hire, an audit, a close. There's a reason this conversation is happening today." },
+  ];
+
+  return (
+    <div style={{
+      background: "#F2F5EF",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      fontFamily: "'DM Sans', sans-serif",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      <div style={{ height: 3, background: `linear-gradient(90deg, #3DAA7A, transparent 55%)`, flexShrink: 0 }} />
+      <div style={{ position: "absolute", right: -20, bottom: -80, fontFamily: "'EB Garamond', serif", fontSize: 380, color: "rgba(13,43,30,0.03)", lineHeight: 1, userSelect: "none", pointerEvents: "none" }}>?</div>
+
+      <div style={{ flex: 1, display: "flex", gap: 0, position: "relative", zIndex: 1, alignItems: "flex-start", paddingTop: "10%", paddingBottom: "10%" }}>
+
+        {/* Left — Recap */}
+        <div style={{ flex: "0 0 42%", display: "flex", flexDirection: "column", justifyContent: "flex-start", padding: "0 40px 0 56px", borderRight: "1px solid rgba(13,43,30,0.08)" }}>
+
+          <span style={{ fontSize: 11, color: "#3DAA7A", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase", marginBottom: 18 }}>What we covered</span>
+
+          <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 42, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.2, marginBottom: 36 }}>
+            Here's what<br />we walked through.
+          </h2>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+            {recap.map((r, i) => (
+              <div key={i} style={{ display: "flex", gap: 20, alignItems: "center" }}>
+                <span style={{ fontFamily: "'EB Garamond', serif", fontSize: 26, color: "rgba(61,170,122,0.45)", flexShrink: 0, lineHeight: 1 }}>{r.num}</span>
+                <div style={{ fontSize: 17, fontWeight: 600, color: "#0D2B1E", lineHeight: 1.3 }}>{r.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right — Fit check */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 56px 0 40px" }}>
+
+          <span style={{ fontSize: 11, color: "#0D2B1E", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase", opacity: 0.35, marginBottom: 18 }}>Fit Check</span>
+
+          <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: 42, fontWeight: 400, color: "#0D2B1E", lineHeight: 1.2, marginBottom: 36 }}>
+            Have we earned the right<br />to next steps?<br />
+            <em style={{ fontSize: 32, color: "rgba(13,43,30,0.4)" }}>Let's discuss.</em>
+          </h2>
+
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ fontSize: 11, color: "rgba(13,43,30,0.4)", letterSpacing: 4, fontWeight: 600, textTransform: "uppercase" }}>Bare minimum for a fit</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {minimum.map((m, i) => (
+              <div key={i} style={{
+                background: "#fff",
+                borderRadius: 10,
+                border: "1px solid rgba(13,43,30,0.09)",
+                padding: "18px 22px",
+                display: "flex",
+                gap: 18,
+                alignItems: "center",
+                boxShadow: "0 1px 3px rgba(13,43,30,0.05)",
+              }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #3DAA7A", background: "rgba(61,170,122,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#3DAA7A" }}>{i + 1}</span>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#0D2B1E", lineHeight: 1.4 }}>{m.check}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════
+// SLIDE 5 — NEXT STEP
+// ═══════════════════════════════════════
+function Slide5() {
+  return (
+    <div style={{ background:C.deepGreen, height:"100%", display:"flex", flexDirection:"column", position:"relative", overflow:"hidden" }}>
+      <div style={{ height:3, background:`linear-gradient(90deg,${C.accentTeal},transparent 55%)`, flexShrink:0 }} />
+      <div style={{ position:"absolute", inset:0, opacity:0.03, backgroundImage:`linear-gradient(${C.accentTeal} 1px,transparent 1px),linear-gradient(90deg,${C.accentTeal} 1px,transparent 1px)`, backgroundSize:"72px 72px", pointerEvents:"none" }} />
+
+      {/* Logo */}
+      <div style={{ position:"absolute", top:44, left:0, right:0, display:"flex", justifyContent:"center", alignItems:"center", gap:14, zIndex:2 }}>
+        <span style={{ fontWeight:700, color:C.accentTeal, fontSize:34 }}>ıılı</span>
+        <span style={{ color:C.mint, fontSize:30, fontWeight:300, letterSpacing:6, opacity:0.85 }}>maybern</span>
+      </div>
+
+      <div style={{ flex:1, display:"flex", gap:0, padding:"80px 0 32px" }}>
+
+        {/* LEFT — text */}
+        <div style={{ flex:"0 0 46%", display:"flex", flexDirection:"column", justifyContent:"center", padding:"0 40px 0 72px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
+            <div style={{ width:48, height:2, background:C.accentTeal }} />
+            <span style={{ fontSize:11, color:C.accentTeal, letterSpacing:5, fontWeight:500 }}>NEXT STEP</span>
+          </div>
+          <h1 style={{ fontFamily:"'EB Garamond',serif", fontSize:42, fontWeight:400, color:C.mint, lineHeight:1.2, marginBottom:24, maxWidth:440 }}>
+            We'll walk you through the product.
+          </h1>
+          <p style={{ fontSize:15, color:C.mint, opacity:0.55, lineHeight:1.7, maxWidth:400, fontWeight:300, marginBottom:28 }}>
+            A high-level introduction showing how your calculation types work inside the system — waterfall structures, carry mechanics, and LP-level economics.
+          </p>
+          <div style={{ display:"flex", gap:10, flexWrap:"wrap", maxWidth:400 }}>
+            {["Waterfall type","Carry & hurdle","Fee structure","LP term variations"].map((item,i) => (
+              <div key={i} style={{ padding:"5px 13px", borderRadius:20, border:`1px solid ${C.accentTeal}44`, background:`${C.accentTeal}12`, fontSize:12, color:C.accentTeal, fontWeight:500 }}>
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT — shared animation panel */}
+        <div style={{ flex:1, display:"flex", alignItems:"center", padding:"0 48px 0 24px" }}>
+          <CalcPanel />
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════
+// SPEAKER NOTES
+// ═══════════════════════════════════════
+const notes = [
+`SLIDE 1 — TITLE
+
+No notes needed. Introduce yourself, one sentence. 10 seconds max.`,
+
+`SLIDE 2 — AGENDA
+
+Read the room before you click past this. If they seem impatient, move fast. If they seem skeptical, linger here — the "we're not here to fit a square peg" line lands best when said out loud, not just shown.
+
+Goal of this slide: lower their guard before you need anything from them.`,
+
+`SLIDE 3 — STATUS QUO
+
+Deliver the opening statement before advancing past the headline. Do not read it off the slide — internalize it. It should sound like an observation, not a pitch.
+
+QUESTIONS
+• "Where do the waterfall and fee calculations actually live today?"
+• "Who built those models, and who runs them each quarter?"
+• "What happens if that person is unavailable during close?"
+• "How does your team spot-check the numbers before they go out?"
+
+LISTEN FOR
+• "One person owns all of it"
+• "We double-check everything manually"
+• "That's why close takes so long"
+• Mentions of near-misses, restatements, or reconciliation pain
+• "It works fine" — normalize and probe gently`,
+
+`SLIDE 4 — WHERE MAYBERN SITS
+
+This slide does one thing: shows the prospect where Maybern lives relative to what they already have. Not instead of their GL. Not instead of their admin. In between.
+
+HOW TO POSITION IT
+Lead with the architecture on the left — GL feeds in, admin and LP portal receive output. Maybern sits in the middle owning the calculation layer. Most fund controllers have never seen this drawn out cleanly. Let them look at it.
+
+Then click the house of cards. The point isn't to scare them — it's to name something they already feel. Their current process works until it doesn't, and everyone in that seat knows it.
+
+The pull quote at the bottom is your close on this slide: "Your GL records what happened. Your admin reports it. Maybern is where you prove it — before anyone asks." Say it or let them read it. Either way, move on.
+
+Do not oversell here. This slide earns the right to ask questions on the next one.`,
+
+`SLIDE 5 — DISCOVERY
+
+The questions on screen cover admin relationship, operating model, and evaluation. Work through them naturally.
+
+MEDDPICC GATES
+
+• "Roughly how many hours does your team spend on the waterfall and distribution process each quarter — and has an error ever made it to an LP?"
+→ Covers Metrics. You need a number, even a rough one.
+
+• "What made you take this call today — and who ultimately owns a decision like this inside your org?"
+→ Covers Why Now + Economic Buyer in one. Listen for a name and a title.
+
+RILEY'S GATE — before moving to Initial Demo
+✓ Pain quantified (even roughly)
+✓ Economic buyer identified by name
+✓ "Why Now" captured in your own words
+✓ Champion identified or hypothesis documented
+✓ Stakeholder org chart started in SFDC`,
+
+`SLIDE 6 — RECAP & FIT CHECK
+
+Let the slide do the recap — walk through the left column briefly, one sentence per item. Then hand it to them.
+
+Script for the right column: "Before we go any further, I want to put four things on the table. These are the bare minimum for Maybern to actually be relevant to you. I'd rather we discuss it now than waste anyone's time."
+
+Then read each item and pause. Let them respond. Do not fill the silence.
+
+WHAT YOU'RE LISTENING FOR
+• Item 1 — do they own the logic or is it truly outsourced? If outsourced with no desire to own it, the deal isn't there.
+• Item 2 — do they acknowledge fragility? Even "it's manageable but..." is enough.
+• Item 3 — complexity confirmation. Flat 2-and-20 with three LPs and no side letters? Say so honestly.
+• Item 4 — THIS IS THE GATE. If they can't name a trigger, the deal has no urgency. Probe: "What's coming up in the next quarter that makes this timely?"
+
+IF ALL FOUR ARE TRUE → "Then it sounds like there's enough here to go further. Let's schedule the walkthrough."
+IF ONE IS UNCLEAR → "Let's spend a minute on that one before we commit to a next step."
+IF ONE IS FALSE → "That's actually helpful to know now — here's where I think that changes things..."
+
+The goal is not to close. It's to earn the right to the next meeting honestly.`,
+
+`SLIDE 7 — NEXT STEP
+
+The ask is a product demo — a light walkthrough using standard calculation examples. Not tailored to their fund yet. Just enough for them to see the system work.
+
+Before you close the call, get three things:
+
+1. WHO SHOULD BE IN THE ROOM
+"Is it worth having your [CFO / managing partner / decision maker] join — or do you want to see it first and bring them in after?"
+Don't assume. Let them tell you the internal dynamic.
+
+2. WHAT TO SHOW
+"To make the demo relevant, what structure should we use as the example — European waterfall, deal-by-deal, something else?"
+Even a rough answer lets you load the right scenario.
+
+3. WHEN
+Get a specific date and time on the calendar before you hang up. A "sounds good, send me something" is not a next step.`,
+];
+
+
+// ═══════════════════════════════════════
+// SHELL
+// ═══════════════════════════════════════
+const slideComponents = [Slide1, SlideGoals, Slide2, Slide3, SlideDiscovery, Slide4, Slide5];
+const slideLabels = ["01 · Title", "02 · Agenda", "03 · Status Quo", "04 · Where We Sit", "05 · Discovery", "06 · Fit Check", "07 · Next Step"];
+const totalSlides = slideComponents.length;
+
+function AudienceView({ slideIndex, slideKey }) {
+  const S = slideComponents[slideIndex];
+  return (
+    <div style={{ width:"100vw",height:"100vh",background:"#1a1a1a",overflow:"hidden" }}>
+      <div key={slideKey} style={{ position:"absolute",inset:0 }}><S /></div>
+    </div>
+  );
+}
+
+function App() {
+  const [current, setCurrent] = useState(0);
+  const [slideKey, setSlideKey] = useState(0);
+  const [showNotes, setShowNotes] = useState(false);
+  const [presenting, setPresenting] = useState(false);
+  const [audienceWin, setAudienceWin] = useState(null);
+  const [isAudience] = useState(() => { try { return window.name==="maybern_audience"; } catch(e){ return false; } });
+
+  useEffect(() => {
+    if (!isAudience) return;
+    const handler = e => { if (e.data?.type==="maybern_slide") { setCurrent(e.data.index); setSlideKey(k=>k+1); } };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [isAudience]);
+
+  const goTo = useCallback((idx) => {
+    setCurrent(idx); setSlideKey(k=>k+1);
+    if (audienceWin && !audienceWin.closed) audienceWin.postMessage({ type:"maybern_slide",index:idx }, "*");
+  }, [audienceWin]);
+
+  const startPresenting = useCallback(() => {
+    const win = window.open(window.location.href, "maybern_audience");
+    if (win) { setAudienceWin(win); setPresenting(true); setShowNotes(true); setTimeout(() => win.postMessage({ type:"maybern_slide",index:current }, "*"), 1200); }
+  }, [current]);
+
+  const stopPresenting = useCallback(() => {
+    if (audienceWin && !audienceWin.closed) audienceWin.close();
+    setAudienceWin(null); setPresenting(false);
+  }, [audienceWin]);
+
+  useEffect(() => {
+    if (!presenting || !audienceWin) return;
+    const id = setInterval(() => { if (audienceWin.closed) { setPresenting(false); setAudienceWin(null); } }, 1000);
+    return () => clearInterval(id);
+  }, [presenting, audienceWin]);
+
+  useEffect(() => {
+    const h = e => {
+      if (e.key==="ArrowRight"||e.key===" ") { e.preventDefault(); if(current<totalSlides-1) goTo(current+1); }
+      if (e.key==="ArrowLeft") { e.preventDefault(); if(current>0) goTo(current-1); }
+      if (e.key==="n"||e.key==="N") setShowNotes(p=>!p);
+      if (e.key==="Escape"&&presenting) stopPresenting();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [current, goTo, presenting, stopPresenting]);
+
+  if (isAudience) return <AudienceView slideIndex={current} slideKey={slideKey} />;
+
+  const S = slideComponents[current];
+  const NextS = current+1 < totalSlides ? slideComponents[current+1] : null;
+
+  return (
+    <div style={{ width:"100%",height:"100vh",display:"flex",flexDirection:"column",background:"#1a1a1a",fontFamily:"'DM Sans',sans-serif" }}>
+      {presenting && (
+        <div style={{ background:C.deepGreen,borderBottom:`2px solid ${C.accentTeal}`,padding:"6px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+            <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+              <div style={{ width:7,height:7,borderRadius:"50%",background:"#ff3b30",boxShadow:"0 0 6px #ff3b30" }} />
+              <span style={{ fontSize:10,fontWeight:700,color:C.accentTeal,letterSpacing:2 }}>PRESENTER MODE</span>
+            </div>
+            <span style={{ fontSize:10,color:"rgba(255,255,255,0.35)",letterSpacing:0.5 }}>Share the <strong style={{color:"rgba(255,255,255,0.6)"}}>Maybern Audience</strong> tab in Zoom/Teams — your client sees only the slide</span>
+          </div>
+          <button onClick={stopPresenting} style={{ background:"rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.5)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:4,padding:"3px 12px",fontSize:10,fontWeight:600,cursor:"pointer",letterSpacing:1 }}>END SESSION</button>
+        </div>
+      )}
+
+      <div style={{ flex:1,display:"flex",overflow:"hidden" }}>
+        <div style={{ flex:1,position:"relative" }}>
+          <div key={slideKey} style={{ position:"absolute",inset:0,overflow:"hidden" }}><S /></div>
+        </div>
+
+        {(showNotes||presenting) && (
+          <div style={{ width:presenting?360:300,background:"#111",borderLeft:"1px solid #2a2a2a",display:"flex",flexDirection:"column",overflow:"hidden" }}>
+            {presenting && NextS && (
+              <div style={{ flexShrink:0,borderBottom:"1px solid #2a2a2a" }}>
+                <div style={{ fontSize:9,color:C.accentTeal,letterSpacing:2,fontWeight:600,padding:"7px 16px 4px",background:"#0a0a0a" }}>NEXT</div>
+                <div style={{ height:130,position:"relative",overflow:"hidden",background:"#1a1a1a" }}>
+                  <div style={{ transform:"scale(0.24)",transformOrigin:"top left",width:"417%",height:"417%",pointerEvents:"none" }}><NextS /></div>
+                </div>
+              </div>
+            )}
+            <div style={{ flex:1,overflowY:"auto",padding:"14px 18px" }}>
+              <div style={{ fontSize:9,color:C.accentTeal,letterSpacing:3,fontWeight:600,marginBottom:10 }}>SPEAKER NOTES</div>
+              <pre style={{ fontSize:presenting?13:12,color:"#ccc",whiteSpace:"pre-wrap",lineHeight:1.75,fontFamily:"'DM Sans',sans-serif" }}>
+                {notes[current]}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ background:"#111",borderTop:"1px solid #2a2a2a",padding:"9px 20px",display:"flex",alignItems:"center",gap:8,flexShrink:0 }}>
+        <button onClick={() => current>0&&goTo(current-1)} disabled={current===0} style={{ background:"none",border:"none",color:current===0?"#333":"#888",fontSize:18,cursor:current===0?"default":"pointer",padding:"3px 7px" }}>◀</button>
+        <div style={{ display:"flex",gap:4,flex:1,justifyContent:"center" }}>
+          {slideLabels.map((label,i) => (
+            <button key={i} onClick={() => goTo(i)} style={{ background:i===current?C.accentTeal:"#222",color:i===current?C.deepGreen:"#666",border:"none",borderRadius:4,padding:"5px 10px",fontSize:9,fontWeight:i===current?700:400,cursor:"pointer",transition:"all 0.18s",letterSpacing:0.5 }}>{label}</button>
+          ))}
+        </div>
+        <button onClick={() => current<totalSlides-1&&goTo(current+1)} disabled={current===totalSlides-1} style={{ background:"none",border:"none",color:current===totalSlides-1?"#333":"#888",fontSize:18,cursor:current===totalSlides-1?"default":"pointer",padding:"3px 7px" }}>▶</button>
+        {!presenting ? (
+          <>
+            <button onClick={() => setShowNotes(p=>!p)} style={{ background:showNotes?C.accentTeal:"#2a2a2a",color:showNotes?C.deepGreen:"#888",border:"none",borderRadius:4,padding:"5px 12px",fontSize:10,fontWeight:600,cursor:"pointer",marginLeft:6,letterSpacing:1 }}>NOTES</button>
+            <button onClick={startPresenting} style={{ background:C.accentTeal,color:C.deepGreen,border:"none",borderRadius:4,padding:"5px 16px",fontSize:10,fontWeight:700,cursor:"pointer",marginLeft:3,letterSpacing:1 }}>▶ PRESENT</button>
+          </>
+        ) : (
+          <div style={{ marginLeft:8,fontSize:10,color:C.accentTeal,fontWeight:600,letterSpacing:1 }}>LIVE · ESC to end</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
